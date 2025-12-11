@@ -3,12 +3,12 @@ package messages.response;
 import messages.Message;
 import messages.MsgHeader;
 
-public class Quit implements Message {
-
+public class OkMessage implements Message {
     private final MsgHeader header;
 
-    public Quit(MsgHeader header) {
-        this.header = header;
+    public OkMessage(MsgHeader header) {
+        this.header=header;
+    
     }
 
     @Override
@@ -16,9 +16,11 @@ public class Quit implements Message {
         return header;
     }
 
+
     @Override
     public String toString() {
-        return String.format("QUIT\r\n"); // according to ABNF abheben_req = "QUIT" CRLF
+        return String.format("OK\r\n"); 
     }
+    
 
 }
