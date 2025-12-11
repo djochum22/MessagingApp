@@ -3,11 +3,10 @@ package messages.request;
 import messages.Message;
 import messages.MsgHeader;
 
-public class QuitReq implements Message {
-
+public class WhoOnlineMessage implements Message {
     private final MsgHeader header;
 
-    public QuitReq(MsgHeader header) {
+    public WhoOnlineMessage(MsgHeader header) {
         this.header = header;
     }
 
@@ -18,7 +17,7 @@ public class QuitReq implements Message {
 
     @Override
     public String toString() {
-        return String.format("QUIT_REQ\r\n"); // according to ABNF abheben_req = "QUIT_REQ" CRLF
+        return String.format("WHO_ONLINE\r\n");
     }
 
 }
