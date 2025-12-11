@@ -13,13 +13,12 @@ reason = 1*(VCHAR / SP)
 text = 1*(VCHAR / SP)  
 
 //header
-version ="Version:" SP 1*DIGIT SP CRLF
 msg_id = "MsgId:" SP 1*(ALPHA /DIGIT) SP CRLF
 correlation_id = "CorrelationId:" SP 1*(ALPHA /DIGIT) SP CRLF
 msg_type = "Type:" SP ( register / login / chat_req / who_online / logout / fwd_chat_req / ok / chat_req_ok / users_online / send_port / logout_ok / chat_req_denied / error / chat_msg / chat_msg_ack ) SP CRLF
 timestamp = "Timestamp in Millis: " SP 1*DIGIT SP CRLF
 
-header = version SP msg_id SP correlation_id SP  msg_type SP timestamp SP CRLF 
+header = msg_id SP correlation_id SP  msg_type SP timestamp SP CRLF 
 
 //ABNF-rules for different msgTypes
 
@@ -54,3 +53,4 @@ udp = chat_msg / chat_msg_ack
 
 chat_msg = "CHAT_MSG" SP text CRLF
 chat_msg_ack = "CHAT_MSG_ACK" CRLF
+
