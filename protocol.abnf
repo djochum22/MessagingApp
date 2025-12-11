@@ -1,0 +1,56 @@
+//Basic definitions of characters
+
+DIGIT =%x30-39
+ALPHA = %x41-5A / %x61-7A
+SP = %x20
+CRLF = %x0D %x0A
+VCHAR = %x21-7E
+
+pin-format = 4*6DIGIT ; between 4 and 6 digits
+card = 6*20(ALPHA/DIGIT) ; between 6 and 20 digits or letters
+amount = 1*DIGIT ["." 2DIGIT] ; at least 1 Digit or 2 digits seperated by '.'
+reason = 1*(VCHAR / SP)  
+text = 1*(VCHAR / SP)  
+
+//header
+version ="Version:" SP 1*DIGIT SP CRLF
+msg_id = "MsgId:" SP 1*(ALPHA /DIGIT) SP CRLF
+correlation_id = "CorrelationId:" SP 1*(ALPHA /DIGIT) SP CRLF
+msg_type = "Type:" SP ( register / login / chat_req / who_online / logout / fwd_chat_req / ok / chat_req_ok / users_online / send_port / logout_ok / chat_req_denied / error / chat_msg / chat_msg_ack ) SP CRLF
+timestamp = "Timestamp in Millis: " SP 1*DIGIT SP CRLF
+
+header = version SP msg_id SP correlation_id SP  msg_type SP timestamp SP CRLF 
+
+//ABNF-rules for different msgTypes
+
+message = header CRLF  CRLF body CRLF 
+body = request / response / udp CRLF
+
+//request-messages
+request = register / login / chat_req / who_online / logout / fwd_chat_req
+
+register ="REGISTER" SP email SP username SP password CRLF
+login = "LOGIN" SP email SP password CRLF
+chat_req = "CHAT_REQ" SP requested_user SP requesting_user_port CRLF
+fwd_chat_req = "FWD_CHAT_REQ" SP requesting_user CRLF;
+who_online = "WHO_ONLINE" CRLF
+logout = "LOGOUT" CRLF
+
+//response-messages
+
+response = ok / chat_req_ok / users_online / send_port / logout_ok / chat_req_denied / error 
+
+ok = "OK" CRLF
+chat_req_ok ="CHAT_REQ_OK" SP requested_user_port CRLF
+users_online = "USERS_ONLINE" SP online_user_list CRLF
+send_port = "SEND_PORT" SP username SP port CRLF
+chat_req_denied = "CHAT_REQ_DENIED" SP requested_user CRLF 
+error = "ERROR" SP reason  CRLF
+
+
+// UDP-messages
+
+udp = chat_msg / chat_msg_ack
+
+chat_msg = "CHAT_MSG" SP text CRLF
+chat_msg_ack = "CHAT_MSG_ACK" CRLF
