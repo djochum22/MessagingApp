@@ -10,7 +10,7 @@ public class ChatReqDeniedMessage implements Message {
     public ChatReqDeniedMessage(MsgHeader header, String requested_user) {
         this.header = header;
         this.requested_user=requested_user;
-    }// maybe constant using generalized bye-message instead of constructing it
+    }
 
     @Override
     public MsgHeader header() {

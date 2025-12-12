@@ -10,11 +10,11 @@ import messages.MsgHeader;
 public class UsersOnlineMessage implements Message {
 
     private final MsgHeader header;
-    private final ArrayList users_online; 
+    private final ArrayList<String> users_online; 
     //#endregion
 
 
-    public UsersOnlineMessage(MsgHeader header, ArrayList users_online) {
+    public UsersOnlineMessage(MsgHeader header, ArrayList<String> users_online) {
         this.header = header;
         this.users_online = users_online;
     }
@@ -26,7 +26,7 @@ public class UsersOnlineMessage implements Message {
 
     
 
-    public ArrayList getUsers_online() {
+    public ArrayList<String> getUsers_online() {
         return users_online;
     }
 
