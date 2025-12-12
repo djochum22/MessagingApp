@@ -6,11 +6,11 @@ public class User {
     private String email;
     private String name;
     private String password;
-    private  InetAddress ip;
-    private  int udpPort;
-    
+    private InetAddress ip;
+    private int udpPort;
 
-    public User(String email, String name, String password, InetAddress ip, int udpPort) {
+    
+    public User(String email, String name, String password, InetAddress ip, int udpPort){
         this.email = email;
         this.name = name;
         this.password = password;
@@ -34,9 +34,8 @@ public class User {
         return ip;
     }
 
-    public int getUdpPort() {
+    public int getUdpPort(){
         return udpPort;
     }
-
  
 }

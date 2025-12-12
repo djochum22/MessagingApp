@@ -2,11 +2,11 @@ package messages;
 
 public class MsgHeader {
     private final MsgType type;
-    private final String msgId;
-    private final String correlationId;
+    private final int msgId;
+    private final int correlationId;
     private final long timestampMillis;
 
-    public MsgHeader(MsgType type, String msgId, String correlationId, long timestampMillis) {
+    public MsgHeader(MsgType type, int msgId, int correlationId, long timestampMillis) {
         this.type = type;
         this.msgId = msgId;
         this.correlationId = correlationId;
@@ -17,11 +17,11 @@ public class MsgHeader {
         return type;
     }
 
-    public String msgId() {
+    public int msgId() {
         return msgId;
     }
 
-    public String correlationId() {
+    public int correlationId() {
         return correlationId;
     }
 
