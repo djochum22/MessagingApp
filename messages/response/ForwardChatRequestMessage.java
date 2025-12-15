@@ -1,4 +1,4 @@
-package messages.request;
+package messages.response;
 
 import messages.Message;
 import messages.MsgHeader;

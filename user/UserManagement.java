@@ -29,8 +29,10 @@ public class UserManagement {
     public User findRegisteredUser(String key){
         User user=null;
 
+
+
         for (User u: registeredUsers){
-            if (u.getName().equals(key)){
+            if (u.getEmail().equals(key)){
                 user=u;
                 break;
             }

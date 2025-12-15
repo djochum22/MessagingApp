@@ -5,13 +5,14 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-
 import codec.SimpleTextCodec;
 import messages.Message;
 import messages.MsgHeader;
 import messages.MsgType;
+import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.RegisterMessage;
+import messages.response.ForwardChatRequestMessage;
 import messages.response.OkMessage;
 import messages.response.UsersOnlineMessage;
 import user.User;
@@ -26,6 +27,7 @@ public class ThreadedServer {
      Message clientMessage, response;
      boolean headerDone = false;
      private ServerSocket welcomeSocket;
+
 
      public ThreadedServer() {
           try {
@@ -45,6 +47,7 @@ public class ThreadedServer {
                     final Thread thread = new Thread(() -> {
                          DataInputStream inFromClient = null;
                          DataOutputStream outToClient = null;
+                         User currUser=null;
 
                          try {
                               inFromClient = new DataInputStream(socket.getInputStream());
@@ -60,10 +63,11 @@ public class ThreadedServer {
                                    // TODO CHECK FOR EXISTING USERNAME
 
                                    RegisterMessage message = (RegisterMessage) clientMessage;
+                              
                                    int udpPort = (int) (Math.random() * 9000) + 1000;
-                                   User user = new User(message.getEmail(), message.getUsername(),
+                                  currUser = new User(message.getEmail(), message.getUsername(),
                                              message.getPassword(), socket.getInetAddress(), udpPort);
-                                   userManagement.register(user);
+                                   userManagement.register(currUser);
                                    response = new OkMessage(
                                              new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
                                    sendData(response, codec, outToClient);
@@ -73,6 +77,7 @@ public class ThreadedServer {
                               case MsgType.LOGIN:
                                    LoginMessage loginMsg = (LoginMessage) clientMessage;
                                    userManagement.setOnline(userManagement.findRegisteredUser(loginMsg.getEmail()));
+                               
 
                                     response = new OkMessage(new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
                                    sendData(response, codec, outToClient);
@@ -86,8 +91,20 @@ public class ThreadedServer {
                                    break;
 
                               case MsgType.CHAT_REQ:
+                                   ChatReqMessage chatReqMessage = (ChatReqMessage)clientMessage;
+                                   String requested_User= chatReqMessage.getRequested_user();
 
-                              
+                                   response = new ForwardChatRequestMessage(new MsgHeader(MsgType.USERS_ONLINE, 1, 1, System.currentTimeMillis()),currUser.getName());
+
+
+                                   //TODO wie hier auf den anderen client zugreifen??
+
+                                   
+
+
+
+
+
 
 
                                    break;
@@ -97,6 +114,8 @@ public class ThreadedServer {
 
                               case MsgType.LOGOUT:
                                    break;
+
+                              case MsgType.CHAT_REQ_OK:
 
                               default:
                                    break;
