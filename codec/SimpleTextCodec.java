@@ -41,11 +41,10 @@ public final class SimpleTextCodec {
 
     public MsgHeader constructHeader(String headerLines[]) throws Exception {
 
-        int version = 0;
-        int sequence = 0;
+    
         MsgType type = null;
-        String msgId = null;
-        String correlationId = null;
+        int msgId = 0;
+        int correlationId = 0;
         long timestampMillis = 0;
         MsgHeader header = null;
 
@@ -54,20 +53,14 @@ public final class SimpleTextCodec {
             if (headerFields.length != 2)
                 continue;
             switch (headerFields[0]) {
-                case "Version":
-                    version = Integer.parseInt(headerFields[1]);
-                    break;
-                case "Sequence":
-                    sequence = Integer.parseInt(headerFields[1]);
-                    break;
                 case "Type":
                     type = MsgType.valueOf(headerFields[1].toUpperCase());
                     break;
                 case "MsgId":
-                    msgId = headerFields[1];
+                    msgId = Integer.parseInt(headerFields[1]);
                     break;
                 case "CorrelationId":
-                    correlationId = headerFields[1];
+                    correlationId = Integer.parseInt(headerFields[1]);
                     break;
                 case "Timestamp in Millis":
                     timestampMillis = System.currentTimeMillis();
@@ -77,7 +70,7 @@ public final class SimpleTextCodec {
             }
 
         }
-        header = new MsgHeader(version, sequence, type, msgId, correlationId, timestampMillis);
+        header = new MsgHeader(type, msgId, correlationId, timestampMillis);
         return header;
 
     }

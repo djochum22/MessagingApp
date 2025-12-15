@@ -62,7 +62,7 @@ public class ThreadedClient {
 
             // register (Server has to add data to registeredUserList)
             if (userChoice.equals("n")) {
-                do {
+                reg: do {
                     System.out.println("Please enter your email");
                     email = inFromUser.readLine();
                     System.out.println("Please choose your name");
@@ -92,9 +92,7 @@ public class ThreadedClient {
                         error = (ErrorMessage) response;
                         System.out.println("Registration failed:" + error.reason() + "\n Please try again");
                         // we should define errorcodes to simplify this
-                        return;
-                        // you mentioned some possibility to jump back to beginning of registration loop
-                        // we should use it here but i dont rememeber *:D // // them into ABNF?
+                        continue reg;
                     }
 
                 } while (response.header().type() == MsgType.ERROR);
@@ -155,7 +153,7 @@ public class ThreadedClient {
                     return;        
                 }
 
-            System.
+            
 
 
 
