@@ -3,11 +3,11 @@ package messages.request;
 import messages.Message;
 import messages.MsgHeader;
 
-public class QuitReq implements Message {
+public class QuitReqMessage implements Message {
 
     private final MsgHeader header;
 
-    public QuitReq(MsgHeader header) {
+    public QuitReqMessage(MsgHeader header) {
         this.header = header;
     }
 

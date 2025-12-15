@@ -31,9 +31,9 @@ request = register / login / chat_req / who_online / logout / fwd_chat_req
 register ="REGISTER" SP email SP username SP password CRLF
 login = "LOGIN" SP email SP password CRLF
 chat_req = "CHAT_REQ" SP requested_user SP requesting_user_port CRLF
-fwd_chat_req = "FWD_CHAT_REQ" SP requesting_user CRLF;
 who_online = "WHO_ONLINE" CRLF
 logout = "LOGOUT" CRLF
+quit_req = "QUITREQ" CRLF
 
 //response-messages
 
@@ -41,6 +41,7 @@ response = ok / chat_req_ok / users_online / send_port / logout_ok / chat_req_de
 
 ok = "OK" CRLF
 chat_req_ok ="CHAT_REQ_OK" SP requested_user_port CRLF
+fwd_chat_req = "FWD_CHAT_REQ" SP requesting_user CRLF;
 users_online = "USERS_ONLINE" SP online_user_list CRLF
 send_port = "SEND_PORT" SP username SP port CRLF
 chat_req_denied = "CHAT_REQ_DENIED" SP requested_user CRLF 

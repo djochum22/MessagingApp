@@ -17,7 +17,7 @@ import messages.MsgType;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
-import messages.request.QuitReq;
+import messages.request.QuitReqMessage;
 import messages.request.RegisterMessage;
 import messages.request.WhoOnlineMessage;
 import messages.response.ChatReqOkMessage;
@@ -75,7 +75,7 @@ public class ThreadedClient {
 
                         switch (userAction) {
                             case "quit":
-                                request = new QuitReq(new MsgHeader(MsgType.QUITREQ, 1, 1, System.currentTimeMillis()));
+                                request = new QuitReqMessage(new MsgHeader(MsgType.QUITREQ, 1, 1, System.currentTimeMillis()));
                                 break;
 
                             case "register":
