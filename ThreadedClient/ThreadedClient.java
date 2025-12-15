@@ -7,13 +7,16 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.Socket;
 
 import codec.SimpleTextCodec;
 import messages.Message;
 import messages.MsgHeader;
 import messages.MsgType;
+import messages.UDP_messages.ChatMessage;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
@@ -26,18 +29,22 @@ import messages.response.ErrorMessage;
 public class ThreadedClient {
     public static void main(String[] args) throws Exception {
 
+        // you can get around the local variables can't be dynamic in threads if you just turn them into arrays
         Socket clientSocket;
-        DatagramSocket clientUdpSocket;
+        DatagramSocket[] clientUdpSocket = {null};
         States state = null;
         BufferedReader inFromUser;
         DataOutputStream outToServer;
         DataInputStream inFromServer;
         SimpleTextCodec codec = new SimpleTextCodec();
         String userChoice, email, name, password, userAction;
-        int requested_udpPort;
+        final int[] requested_udpPort = {0};
         Message response = null, request = null;
         byte[] sendData = null;
         byte[] receiveData = new byte[1024];
+        Thread UDP_thread;
+        final InetAddress[] clientIPAddress = {null};
+
 
         // connect (tbh I don't know where to start the thread probably here but.. )
 
@@ -197,10 +204,10 @@ public class ThreadedClient {
                             }
 
                             ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
-                            requested_udpPort = chatOk.getRequested_user_port();
+                            requested_udpPort[0] = chatOk.getRequested_user_port();
 
                             // TODO establish UDP Connection here
-
+                            // this doesn't make sense sense we aren't connecting to UDP we are just sending messages so nothing needs to be here
                             state = States.CONNECTEDTOCLIENT;
                             break;
                     }
@@ -208,7 +215,59 @@ public class ThreadedClient {
                 case States.CONNECTEDTOCLIENT:
 
                     // TODO implement UDP-Communication here
+                    try {
+                        clientUdpSocket[0] = new DatagramSocket();
+                        System.out.println("ClientSocket established on port: " + clientUdpSocket[0].getLocalPort());
+                        clientUdpSocket[0].setSoTimeout(5000); // 5000 ms = 5 Sekunden
+                        System.out.println("SocketTimeout set to 5 seconds");
+                        // what is the name of client
+                        clientIPAddress[0] = InetAddress.getByName("localhost");
 
+                        System.out.println("ServerIP found: " + clientIPAddress[0]);
+                        // running = true;
+                    } catch (Exception e) {
+                        e.getMessage();
+                        e.printStackTrace();
+                        System.err.println("Initialization failed");
+                        clientUdpSocket[0].close();
+                        return;
+                    }
+
+                    do {
+                        Thread message_send_thread = new Thread(() -> {
+                            System.out.print("Message: ");
+                            String message = null;
+                            try {
+                                message = inFromUser.readLine();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+
+                            ChatMessage chat_message = new ChatMessage(new MsgHeader(MsgType.CHAT_MSG,1, 1, System.currentTimeMillis()), message);
+                            
+                            byte[] msgData = codec.encode(chat_message);
+
+                            DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, clientIPAddress[0], requested_udpPort[0]);
+                            
+                            try {
+                                clientUdpSocket[0].send(sendPacket);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        });
+                        message_send_thread.start();
+
+
+
+                    } while (!inFromUser.readLine().equals("quit"));
+
+
+
+                    // UDP_thread = new Thread(() -> {
+                        
+
+                    // });
+                    // UDP_thread.start();
                     break;
 
                 default:
