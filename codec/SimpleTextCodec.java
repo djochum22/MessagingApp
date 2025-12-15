@@ -6,7 +6,20 @@ import java.util.Arrays;
 import messages.Message;
 import messages.MsgHeader;
 import messages.MsgType;
-
+import messages.request.ChatReqMessage;
+import messages.request.LoginMessage;
+import messages.request.LogoutMessage;
+import messages.request.QuitReq;
+import messages.request.QuitReq;
+import messages.request.RegisterMessage;
+import messages.request.WhoOnlineMessage;
+import messages.response.ChatReqDeniedMessage;
+import messages.response.ChatReqOkMessage;
+import messages.response.ErrorMessage;
+import messages.response.ForwardChatRequestMessage;
+import messages.response.OkMessage;
+import messages.response.SendPortMessage;
+import messages.UDPmessages.ChatMessage;
 
 public final class SimpleTextCodec {
 
@@ -78,6 +91,14 @@ public final class SimpleTextCodec {
     public Message constructMessage(String bodyLines[], MsgHeader header) throws Exception {
 
         Message msg = null;
+        String email;
+        String username;
+        String password;
+        String requested_user = null;
+        int requested_user_port;
+        int port;
+        String text;
+        int errorCode;
 
         for (String part : bodyLines) {
 
@@ -86,11 +107,60 @@ public final class SimpleTextCodec {
             bodyFields = Arrays.copyOfRange(bodyFields, 1, bodyFields.length); // remove first word
 
             switch (command) {
-                case "PING":
-
-                    msg = new Ping(header);
+                case "REGISTER":
+                    email = bodyFields[0];
+                    username = bodyFields[1];
+                    password = bodyFields[2];
+                    msg = new RegisterMessage(header, email, username, password);
                     break;
-
+                case "LOGIN":
+                    email = bodyFields[0];
+                    password = bodyFields[1];
+                    msg = new LoginMessage(header, email, password);
+                    break;
+                case "CHAT_REQ":
+                    requested_user = bodyFields[0];
+                    msg = new ChatReqMessage(header, requested_user);
+                    break;
+                case "WHO_ONLINE":
+                    msg = new WhoOnlineMessage(header);
+                    break;
+                case "LOGOUT":
+                    msg = new LogoutMessage(header);
+                    break;
+                case "QUITREQ":
+                    msg = new QuitReq(header);
+                    break;
+                case "OK":
+                    msg = new OkMessage(header);
+                    break;
+                case "CHAT_REQ_OK":
+                    requested_user_port = Integer.parseInt(bodyFields[0]);
+                    msg = new ChatReqOkMessage(header, requested_user_port);
+                    break;
+                case "USERS_ONLINE":
+                    // TODO not certain about the format for the 
+                case "SEND_PORT":
+                    port = Integer.parseInt(bodyFields[0]);
+                    username = bodyFields[1];
+                    msg = new SendPortMessage(header, port, username);
+                    break;
+                case "CHAT_REQ_DENIED":
+                    requested_user = bodyFields[0];
+                    msg = new ChatReqDeniedMessage(header, requested_user);
+                    break;
+                case "ERROR":
+                    errorCode= Integer.parseInt(bodyFields[0]);
+                    msg = new ErrorMessage(header, errorCode);
+                    break;
+                case "FWD_CHAT_REQ":
+                    requested_user = bodyFields[0];
+                    msg = new ForwardChatRequestMessage(header, requested_user);
+                    break;
+                case "CHAT_MSG":
+                    text = bodyFields[0];
+                    msg = new ChatMessage(header, text);
+                    break;
                 default:
                     throw new Exception("Unsupported Body-Field");
             }
