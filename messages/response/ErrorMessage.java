@@ -5,9 +5,9 @@ import messages.MsgHeader;
 
 public class ErrorMessage implements Message {
     private final MsgHeader header;
-    private final String reason;
+    private final int reason;
 
-    public ErrorMessage(MsgHeader header, String reason) {
+    public ErrorMessage(MsgHeader header, int reason) {
         this.header = header;
         this.reason = reason;
     }// maybe constant using generalized bye-message instead of constructing it
@@ -17,7 +17,7 @@ public class ErrorMessage implements Message {
         return header;
     }
 
-    public String reason() {
+    public int reason() {
         return reason;
     }
 

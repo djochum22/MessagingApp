@@ -22,5 +22,24 @@ public class UserManagement {
         return onlineUsers;
     }
 
+    public ArrayList<User> getRegisteredUsers() {
+        return registeredUsers;
+    }
+
+    public User findRegisteredUser(String key){
+        User user=null;
+
+        for (User u: registeredUsers){
+            if (u.getName().equals(key)){
+                user=u;
+                break;
+            }
+        }
+        return user;
+
+    }
+
+    
+
     
 }

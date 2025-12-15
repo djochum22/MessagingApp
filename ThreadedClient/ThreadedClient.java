@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.DatagramSocket;
@@ -13,9 +14,13 @@ import codec.SimpleTextCodec;
 import messages.Message;
 import messages.MsgHeader;
 import messages.MsgType;
+import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
+import messages.request.LogoutMessage;
+import messages.request.QuitReq;
 import messages.request.RegisterMessage;
 import messages.request.WhoOnlineMessage;
+import messages.response.ChatReqOkMessage;
 import messages.response.ErrorMessage;
 
 public class ThreadedClient {
@@ -23,14 +28,14 @@ public class ThreadedClient {
 
         Socket clientSocket;
         DatagramSocket clientUdpSocket;
-        States state = States.DISCONNECTED;
+        States state = null;
         BufferedReader inFromUser;
         DataOutputStream outToServer;
         DataInputStream inFromServer;
         SimpleTextCodec codec = new SimpleTextCodec();
-        String userChoice, email, name, password;
-        int udpPort;
-        Message response, request;
+        String userChoice, email, name, password, userAction;
+        int requested_udpPort;
+        Message response = null, request = null;
         byte[] sendData = null;
         byte[] receiveData = new byte[1024];
 
@@ -42,8 +47,7 @@ public class ThreadedClient {
             state = States.CONNECTEDTOSERVER;
 
             inFromUser = new BufferedReader(new InputStreamReader(System.in));
-            outToServer = new DataOutputStream(clientSocket.getOutputStream()); // different reader and writer because
-                                                                                // of byte-arrays
+            outToServer = new DataOutputStream(clientSocket.getOutputStream());                                                                  // // of byte-arrays
             inFromServer = new DataInputStream(clientSocket.getInputStream());
 
         } catch (Exception e) {
@@ -53,111 +57,201 @@ public class ThreadedClient {
             return;
         }
 
-        while (clientSocket.isConnected()) {
+        while (state!=null) {
 
-            do {
-                System.out.println("Are you registered? y/n");
-                userChoice = inFromUser.readLine();
-            } while (!userChoice.equals("y") || !userChoice.equals("n"));
+            switch (state) {
 
-            // register (Server has to add data to registeredUserList)
-            if (userChoice.equals("n")) {
-                reg: do {
-                    System.out.println("Please enter your email");
-                    email = inFromUser.readLine();
-                    System.out.println("Please choose your name");
-                    name = inFromUser.readLine();
-                    System.out.println("Please choose your password");
-                    password = inFromUser.readLine();
+                case States.CONNECTEDTOSERVER:
 
-                    // do we want to ask specifically for the udpPort? In real life this does not
-                    // make sense but maybe here it does?
+                    outer: do {
 
-                    request = new RegisterMessage(new MsgHeader(MsgType.REGISTER, 1, 1, System.currentTimeMillis()),
-                            email, name, password);
+                        do {
+                            System.out.println("What do you want to do? register | login | quit");
+                            userAction = inFromUser.readLine();
+
+                        } while (!(userAction.toLowerCase().equals("register")
+                                || userAction.toLowerCase().equals("login")
+                                || userAction.toLowerCase().equals("quit")));
+
+                        switch (userAction) {
+                            case "quit":
+                                request = new QuitReq(new MsgHeader(MsgType.QUITREQ, 1, 1, System.currentTimeMillis()));
+                                break;
+
+                            case "register":
+                                // register (Server has to add data to registeredUserList)
+                                do {
+                                    System.out.println("Please enter your email");
+                                    email = inFromUser.readLine();
+                                    System.out.println("Please choose your name");
+                                    name = inFromUser.readLine();
+                                    System.out.println("Please choose your password");
+                                    password = inFromUser.readLine();
+
+                                    request = new RegisterMessage(
+                                            new MsgHeader(MsgType.REGISTER, 1, 1, System.currentTimeMillis()),
+                                            email, name, password);
+                                    sendData(request, codec, outToServer);
+                                    response = receiveData(codec, inFromServer);
+
+                                    if (response.header().type() == MsgType.ERROR) {
+                                        ErrorMessage error;
+                                        error = (ErrorMessage) response;
+                                        System.out.println(
+                                                "Registration failed.Error: " + error.reason() + "\n Please try again or type");
+                                        // we should define errorcodes to simplify this
+                                        continue outer;
+                                    }
+
+                                } while (response.header().type() == MsgType.ERROR);
+                                System.out.println("Registration successful");
+
+                                continue outer;
+
+                            case "login":
+                                do {
+
+                                    System.out.println("Please enter your login-email");
+                                    email = inFromUser.readLine();
+                                    System.out.println("Please enter your password");
+                                    password = inFromUser.readLine();
+
+                                    request = new LoginMessage(
+                                            new MsgHeader(MsgType.LOGIN, 1, 1, System.currentTimeMillis()),
+                                            email,
+                                            password);
+                                    sendData(request, codec, outToServer);
+                                    receiveData(codec, inFromServer);
+
+                                    if (response.header().type() == MsgType.ERROR) {
+                                        ErrorMessage error;
+                                        error = (ErrorMessage) response;
+                                        System.out.println(
+                                                "Login failed. Error: " + error.reason() + "\n Please try again");
+                                        continue outer;
+                                    }
+
+                                } while (response.header().type() == MsgType.ERROR);
+                                System.out.println("Login successful");
+                                state = States.ONLINE;
+
+                                break;
+
+                            default:
+                                break;
+                        }
+                    } while (!(userAction.toLowerCase().equals("quit")));
+
+                    sendData(request, codec, outToServer);
+                    System.out.println("Bye-Message sent:\n" + sendData);
+                    clientSocket.close();
+                    state = null;
+                    break;
+
+                case States.ONLINE:
+
+                    request = new WhoOnlineMessage(
+                            new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
                     sendData = codec.encode(request);
 
-                    outToServer.writeInt(sendData.length);
-                    outToServer.write(sendData);
-                    outToServer.flush();
-
-                    // need to simulate error while registration e.g. username already taken
-                    int length = inFromServer.readInt();
-                    receiveData = inFromServer.readNBytes(length);
-
-                    response = codec.decode(receiveData);
+                    sendData(request, codec, outToServer);
+                    receiveData(codec, inFromServer);
 
                     if (response.header().type() == MsgType.ERROR) {
                         ErrorMessage error;
                         error = (ErrorMessage) response;
-                        System.out.println("Registration failed:" + error.reason() + "\n Please try again");
-                        // we should define errorcodes to simplify this
-                        continue reg;
+                        System.out
+                                .println("No online users. Error: " + error.reason() + ",\r\n You will be logged out");
+                        state = States.CONNECTEDTOSERVER;
+                        break;
                     }
 
-                } while (response.header().type() == MsgType.ERROR);
-                System.out.println("Registration successful");
+                    System.out.println("Who do want to chat with? Please type name or 'logut'");
+
+                    userChoice = inFromUser.readLine();
+
+                    switch (userChoice) {
+                        case "logout":
+                
+                            request = new LogoutMessage(
+                                    new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
+
+                            sendData(request, codec, outToServer);
+                            System.out.println("Bye-Message sent:\n" + sendData);
+                            clientSocket.close();
+                            state = null;
+                            break;
+                        default: // default because there will be different names
+                            request = new ChatReqMessage(
+                                    new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()), userChoice);
+                            sendData(request, codec, outToServer);
+                            receiveData(codec, inFromServer);
+
+                            if (response.header().type() == MsgType.ERROR) {
+                                ErrorMessage error;
+                                error = (ErrorMessage) response;
+                                System.out.println("Chat could not be established. Error: " + error.reason()
+                                        + ",\r\n You will be logged out");
+                                state = States.CONNECTEDTOSERVER;
+                                break;
+                            }
+
+                            ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
+                            requested_udpPort = chatOk.getRequested_user_port();
+
+                            // TODO establish UDP Connection here
+
+                            state = States.CONNECTEDTOCLIENT;
+                            break;
+                    }
+
+                case States.CONNECTEDTOCLIENT:
+
+                    // TODO implement UDP-Communication here
+
+                    break;
+
+                default:
+                    break;
 
             }
-
-            // no else since login is necessary anayway
-            do {
-
-                System.out.println("Please enter your login-email");
-                email = inFromUser.readLine();
-                System.out.println("Please enter your password");
-                password = inFromUser.readLine();
-
-                request = new LoginMessage(new MsgHeader(MsgType.LOGIN, 1, 1, System.currentTimeMillis()), email,
-                        password);
-                sendData = codec.encode(request);
-
-                outToServer.write(sendData);
-                outToServer.flush();
-
-                int length = inFromServer.readInt();
-                receiveData = inFromServer.readNBytes(length);
-
-                response = codec.decode(receiveData);
-
-                if (response.header().type() == MsgType.ERROR) {
-                    ErrorMessage error;
-                    error = (ErrorMessage) response;
-                    System.out.println("Login failed: " + error.reason() + "\n Please try again");
-                    return; // also return to beginning of do while and TODO implement possibilty to quit
-                            // and stop login
-                }
-
-            } while (response.header().type() == MsgType.ERROR);
-            System.out.println("Login successful");
-            state = States.ONLINE;
-
-            // TODO Quit Message? Options?
-
-            request = new WhoOnlineMessage(new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
-            sendData = codec.encode(request);
-
-            outToServer.write(sendData);
-            outToServer.flush();
-
-            int length = inFromServer.readInt();
-            receiveData = inFromServer.readNBytes(length);
-
-            response = codec.decode(receiveData);
-            System.out.println(response.toString());
-
-            if (response.header().type() == MsgType.ERROR) {
-                    ErrorMessage error;
-                    error = (ErrorMessage) response;
-                    System.out.println("No onine users" + error.reason()); //  TODO on server: check if online user list != null    
-                    return;        
-                }
-
-            
-
-
-
         }
 
+        System.out.println("Connection to Server closed");
+
     }
+
+    private static void sendData(Message msg, SimpleTextCodec codec, DataOutputStream outToServer) {
+        byte[] sendData = null;
+        try {
+            sendData = codec.encode(msg);
+            outToServer.writeInt(sendData.length);
+            outToServer.write(sendData);
+            outToServer.flush();
+        } catch (IOException e) {
+
+            e.getMessage();
+            e.printStackTrace();
+            System.err.println("Could not send Data to Sever");
+        }
+    }
+
+    private static Message receiveData(SimpleTextCodec codec, DataInputStream inFromServer) {
+        Message response = null;
+        byte[] receiveData = new byte[1024];
+        try {
+            int length = inFromServer.readInt();
+            receiveData = inFromServer.readNBytes(length);
+            response = codec.decode(receiveData);
+
+        } catch (IOException e) {
+            e.getMessage();
+            e.printStackTrace();
+            System.err.println("Could not receive Data from Sever");
+            return null;
+        }
+
+        return response;
+    }
+
 }
