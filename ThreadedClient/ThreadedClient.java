@@ -15,6 +15,8 @@ import messages.MsgHeader;
 import messages.MsgType;
 import messages.request.LoginMessage;
 import messages.request.RegisterMessage;
+import messages.request.WhoOnlineMessage;
+import messages.response.ErrorMessage;
 
 public class ThreadedClient {
     public static void main(String[] args) throws Exception {
@@ -71,7 +73,8 @@ public class ThreadedClient {
                     // do we want to ask specifically for the udpPort? In real life this does not
                     // make sense but maybe here it does?
 
-                    request = new RegisterMessage(new MsgHeader(MsgType.REGISTER, 1, 1, System.currentTimeMillis()), email, name, password);
+                    request = new RegisterMessage(new MsgHeader(MsgType.REGISTER, 1, 1, System.currentTimeMillis()),
+                            email, name, password);
                     sendData = codec.encode(request);
 
                     outToServer.writeInt(sendData.length);
@@ -85,45 +88,76 @@ public class ThreadedClient {
                     response = codec.decode(receiveData);
 
                     if (response.header().type() == MsgType.ERROR) {
-                        System.out.println("Registration failed: Reason \n Please try again"); 
+                        ErrorMessage error;
+                        error = (ErrorMessage) response;
+                        System.out.println("Registration failed:" + error.reason() + "\n Please try again");
                         // we should define errorcodes to simplify this
-                        return; 
-                        //you mentioned some possibility to jump back to beginning of registration loop we should use it here but i dont rememeber *:D                                                                     //                        // them into ABNF?
+                        return;
+                        // you mentioned some possibility to jump back to beginning of registration loop
+                        // we should use it here but i dont rememeber *:D // // them into ABNF?
                     }
 
-                   
                 } while (response.header().type() == MsgType.ERROR);
-                System.out.println("Registration successful"); 
+                System.out.println("Registration successful");
 
             }
 
             // no else since login is necessary anayway
             do {
 
-            System.out.println("Please enter your login-email");
-            email = inFromUser.readLine();
-            System.out.println("Please enter your password");
-            password = inFromUser.readLine();
+                System.out.println("Please enter your login-email");
+                email = inFromUser.readLine();
+                System.out.println("Please enter your password");
+                password = inFromUser.readLine();
 
-            request = new LoginMessage(new MsgHeader(MsgType.LOGIN, 1, 1, System.currentTimeMillis()), email, password);
+                request = new LoginMessage(new MsgHeader(MsgType.LOGIN, 1, 1, System.currentTimeMillis()), email,
+                        password);
+                sendData = codec.encode(request);
+
+                outToServer.write(sendData);
+                outToServer.flush();
+
+                int length = inFromServer.readInt();
+                receiveData = inFromServer.readNBytes(length);
+
+                response = codec.decode(receiveData);
+
+                if (response.header().type() == MsgType.ERROR) {
+                    ErrorMessage error;
+                    error = (ErrorMessage) response;
+                    System.out.println("Login failed: " + error.reason() + "\n Please try again");
+                    return; // also return to beginning of do while and TODO implement possibilty to quit
+                            // and stop login
+                }
+
+            } while (response.header().type() == MsgType.ERROR);
+            System.out.println("Login successful");
+            state = States.ONLINE;
+
+            // TODO Quit Message? Options?
+
+            request = new WhoOnlineMessage(new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
             sendData = codec.encode(request);
 
             outToServer.write(sendData);
             outToServer.flush();
 
-                    int length = inFromServer.readInt();
-                    receiveData = inFromServer.readNBytes(length);
+            int length = inFromServer.readInt();
+            receiveData = inFromServer.readNBytes(length);
 
-                    response = codec.decode(receiveData);
+            response = codec.decode(receiveData);
+            System.out.println(response.toString());
 
-                    if (response.header().type() == MsgType.ERROR) {
-                        System.out.println("Login failed: Reason \n Please try again"); // TODO access reason and print it (maybe add body to Message and getter)
-                        return; //also return to beginning of do while and TODO implement possibilty to quit and stop login 
-                    }
-                   
-                } while (response.header().type() == MsgType.ERROR);
-                System.out.println("Login successful"); 
-                state=States.ONLINE;
+            if (response.header().type() == MsgType.ERROR) {
+                    ErrorMessage error;
+                    error = (ErrorMessage) response;
+                    System.out.println("No onine users" + error.reason()); //  TODO on server: check if online user list != null    
+                    return;        
+                }
+
+            System.
+
+
 
         }
 
