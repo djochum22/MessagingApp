@@ -139,14 +139,28 @@ public final class SimpleTextCodec {
                     msg = new ChatReqOkMessage(header, requested_user_port);
                     break;
                 case "USERS_ONLINE":
-                    for (String u : bodyFields) { // not sure if this works because i can't debug the list atm and i don't know wether we get a lot of bodyfields or just one containing all the names
 
-                    // if there is only bodyFields[0]: 
-                    // for (String u: bodyfields[0].split(",")){
-                    // onlineUsers.add(u)}  
+                //according to chatty the toString() of an Arraylist returns [element1, element2]
+                //therefor the following method should work 
+
+
+                    // String raw = bodyFields[0];
+                    // raw = raw.trim();
+
+                    // if (raw.startsWith("[") && raw.endsWith("]")) {
+                    //     raw = raw.substring(1, raw.length() - 1);
+
+                    //     if (!raw.isBlank()) {
+                    //         for (String u : raw.split(",")) {
+                    //             onlineUsers.add(u.trim());
+                    //         }
+                    //     }
+                    // }
+
+                    for (String u : bodyFields) { // not sure if this works because i can't debug the list atm and i don't know wether we get a lot of bodyfields or just one containing all the names
                         onlineUsers.add(u);
                     }
-                    msg = new UsersOnlineMessage(header, onlineUsers); 
+                    msg = new UsersOnlineMessage(header, onlineUsers);
                     break;
                 case "SEND_PORT":
                     port = Integer.parseInt(bodyFields[0]);
