@@ -7,12 +7,14 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 
 import codec.SimpleTextCodec;
 import messages.Message;
 import messages.MsgHeader;
 import messages.MsgType;
 import messages.UDPmessages.ChatMessage;
+import messages.UDPmessages.ChatMessageACK;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
@@ -24,6 +26,7 @@ import messages.response.ErrorMessage;
 
 public class ThreadedClientObject {
     private Socket clientSocket;
+    private DatagramSocket clientUdpSocket;
     private States state = null;
     private BufferedReader inFromUser;
     private DataOutputStream outToServer;
@@ -32,12 +35,13 @@ public class ThreadedClientObject {
     private Message response = null, request = null;
     private SimpleTextCodec codec;
     private byte[] sendData = null;
-    private byte[] receiveData;
+    private byte[] receiveMessages;
     private int requested_udpPort;
+    private UDPStates udpStates = null;
 
     public ThreadedClientObject() {
         codec = new SimpleTextCodec();
-        receiveData = new byte[1024];
+        receiveMessages = new byte[1024];
     }
 
     public static void main(String[] args) throws IOException {
@@ -49,8 +53,7 @@ public class ThreadedClientObject {
         try {
             clientSocket = new Socket("localhost", 6324);
             System.out.println("Client connected end with \"END\"");
-            //state = States.CONNECTEDTOSERVER;
-            state = States.ONLINE;
+            state = States.CONNECTEDTOSERVER;
             inFromUser = new BufferedReader(new InputStreamReader(System.in));
             outToServer = new DataOutputStream(clientSocket.getOutputStream()); // // of byte-arrays
             inFromServer = new DataInputStream(clientSocket.getInputStream());
@@ -140,7 +143,7 @@ public class ThreadedClientObject {
                                 System.out.println("Login successful");
                                 state = States.ONLINE;
 
-                                break;
+                                break s;
                             default:
                                 break;
                         }
@@ -168,7 +171,7 @@ public class ThreadedClientObject {
                         break;
                     }
 
-                    System.out.println("Who do want to chat with? Please type name or 'logut'");
+                    System.out.println("Who do want to chat with? Please type name or 'logout'");
 
                     userChoice = inFromUser.readLine();
 
@@ -240,5 +243,84 @@ public class ThreadedClientObject {
         }
 
         return response;
+    }
+
+    private void UDPConnection(int port, InetAddress ipAddress) throws IOException {
+
+        udpStates = UDPStates.ACK_RECEIVED;
+        
+        try {
+            clientUdpSocket = new DatagramSocket();
+            System.out.println("ClientSocket established on port: " + clientUdpSocket.getLocalPort());
+            clientUdpSocket.setSoTimeout(5000); // 5000 ms = 5 Sekunden
+            System.out.println("SocketTimeout set to 5 seconds");
+
+        } catch (Exception e) {
+            e.getMessage();
+            e.printStackTrace();
+            System.err.println("Initialization failed");
+            clientUdpSocket.close();
+            return;
+        }
+
+        do {
+            Thread message_send_thread = new Thread(() -> {
+                byte[] msgData;
+                // two different packets to save the last packet incase of packet loss
+                DatagramPacket sendPacket = null, lastPacket = null;
+
+                System.out.print("Message: ");
+                String message = null;
+                try {
+                    if (udpStates == UDPStates.ACK_RECEIVED) {
+                        message = inFromUser.readLine();
+
+                        ChatMessage chat_message = new ChatMessage(
+                            new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
+
+                        msgData = codec.encode(chat_message);
+
+                        sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, port);
+
+                        clientUdpSocket.send(sendPacket);
+                        lastPacket = sendPacket;
+
+                    } else if (udpStates == UDPStates.WAIT_FOR_ACK) {
+                        clientUdpSocket.send(lastPacket);
+                    } else if (udpStates == UDPStates.MESSAGE_RCV) {
+                        ChatMessageACK chat_message_ack = new ChatMessageACK(0);
+                        msgData = chat_message_ack.data();
+                        sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, port);
+                    }
+                } catch (IOException e) {
+                    e.getMessage();
+                }
+            });
+            message_send_thread.start();
+
+            Thread message_receive_thread = new Thread(() -> {
+                byte[] receiveData = new byte[1024];
+                Message udp_message;
+
+                try {
+                    DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+                    clientUdpSocket.receive(receivePacket);
+                    
+                    // if it is an ACK because it would just be a zero
+                    if (receivePacket.getData()[0] == 0) {
+                        udpStates = UDPStates.ACK_RECEIVED;
+                    } else if (udpStates != UDPStates.WAIT_FOR_ACK){
+                        udp_message = codec.decode(receiveData);
+
+                        System.out.println(udp_message.toString());
+                    }
+                } catch (SocketTimeoutException c) {
+                    udpStates = UDPStates.WAIT_FOR_ACK;
+                } catch(IOException e) {
+                    e.getMessage();
+                }
+            });
+            message_receive_thread.start();
+        } while (!(inFromUser.readLine().equals("exit")) && state == States.CONNECTEDTOCLIENT);
     }
 }

@@ -2,7 +2,7 @@
 package messages.UDPmessages;
 
 
-public class ChatMessageACK  {
+public class ChatMessageACK {
    private final int ack;
 
     public ChatMessageACK(int ack) {
