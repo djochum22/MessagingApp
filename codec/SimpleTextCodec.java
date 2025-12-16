@@ -9,8 +9,6 @@ import messages.MsgType;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
-import messages.request.QuitReq;
-import messages.request.QuitReq;
 import messages.request.RegisterMessage;
 import messages.request.WhoOnlineMessage;
 import messages.response.ChatReqDeniedMessage;

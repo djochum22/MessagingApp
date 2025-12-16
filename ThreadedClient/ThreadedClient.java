@@ -21,7 +21,6 @@ import messages.UDP_messages.ChatMessage;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
-import messages.request.QuitReqMessage;
 import messages.request.RegisterMessage;
 import messages.request.WhoOnlineMessage;
 import messages.response.ChatReqOkMessage;
