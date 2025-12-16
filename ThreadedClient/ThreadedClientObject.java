@@ -9,9 +9,13 @@ import codec.SimpleTextCodec;
 import messages.Message;
 import messages.MsgHeader;
 import messages.MsgType;
+import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
+import messages.request.LogoutMessage;
 import messages.request.QuitReqMessage;
 import messages.request.RegisterMessage;
+import messages.request.WhoOnlineMessage;
+import messages.response.ChatReqOkMessage;
 import messages.response.ErrorMessage;
 
 public class ThreadedClientObject {
@@ -25,6 +29,7 @@ public class ThreadedClientObject {
     private SimpleTextCodec codec;
     private byte[] sendData = null;
     private byte[] receiveData;
+    private int requested_udpPort;
 
     public ThreadedClientObject() {
         codec = new SimpleTextCodec();
@@ -40,8 +45,8 @@ public class ThreadedClientObject {
         try {
             clientSocket = new Socket("localhost", 6324);
             System.out.println("Client connected end with \"END\"");
-            state = States.CONNECTEDTOSERVER;
-
+            //state = States.CONNECTEDTOSERVER;
+            state = States.ONLINE;
             inFromUser = new BufferedReader(new InputStreamReader(System.in));
             outToServer = new DataOutputStream(clientSocket.getOutputStream()); // // of byte-arrays
             inFromServer = new DataInputStream(clientSocket.getInputStream());
@@ -131,7 +136,6 @@ public class ThreadedClientObject {
                                 state = States.ONLINE;
 
                                 break;
-
                             default:
                                 break;
                         }
@@ -142,6 +146,61 @@ public class ThreadedClientObject {
                     clientSocket.close();
                     state = null;
                     break;
+                case States.ONLINE:
+
+                    request = new WhoOnlineMessage(
+                            new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
+                    sendData = codec.encode(request);
+
+                    sendData(request, codec, outToServer);
+                    receiveData(codec, inFromServer);
+
+                    if (response.header().type() == MsgType.ERROR) {
+                        ErrorMessage error;
+                        error = (ErrorMessage) response;
+                        System.out
+                                .println("No online users. Error: " + error.reason() + ",\r\n You will be logged out");
+                        state = States.CONNECTEDTOSERVER;
+                        break;
+                    }
+
+                    System.out.println("Who do want to chat with? Please type name or 'logut'");
+
+                    userChoice = inFromUser.readLine();
+
+                    switch (userChoice) {
+                        case "logout":
+
+                            request = new LogoutMessage(
+                                    new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
+
+                            sendData(request, codec, outToServer);
+                            System.out.println("Bye-Message sent:\n" + sendData);
+                            clientSocket.close();
+                            state = null;
+                            break;
+                        default: // default because there will be different names
+                            request = new ChatReqMessage(
+                                    new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()), userChoice);
+                            sendData(request, codec, outToServer);
+                            receiveData(codec, inFromServer);
+
+                            if (response.header().type() == MsgType.ERROR) {
+                                ErrorMessage error;
+                                error = (ErrorMessage) response;
+                                System.out.println("Chat could not be established. Error: " + error.reason()
+                                        + ",\r\n You will be logged out");
+                                state = States.CONNECTEDTOSERVER;
+                                break;
+                            }
+
+                            ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
+                            requested_udpPort = chatOk.getRequested_user_port();
+
+                            state = States.CONNECTEDTOCLIENT;
+                            System.out.print("yay we can connect now UDP here");
+                            break;
+                    }
             }
         }
     }
@@ -160,7 +219,7 @@ public class ThreadedClientObject {
             System.err.println("Could not send Data to Sever");
         }
     }
-    
+
     private Message receiveData(SimpleTextCodec codec, DataInputStream inFromServer) {
         Message response = null;
         byte[] receiveData = new byte[1024];
