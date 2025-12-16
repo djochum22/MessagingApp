@@ -3,12 +3,16 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.Socket;
 
 import codec.SimpleTextCodec;
 import messages.Message;
 import messages.MsgHeader;
 import messages.MsgType;
+import messages.UDPmessages.ChatMessage;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
@@ -59,7 +63,7 @@ public class ThreadedClientObject {
         }
 
         while (state != null) {
-            switch (state) {
+            s: switch (state) {
                 case States.CONNECTEDTOSERVER:
                     outer: do {
 
@@ -74,7 +78,8 @@ public class ThreadedClientObject {
                         switch (userAction) {
                             case "quit":
                                 request = new QuitReqMessage(
-                                        new MsgHeader(MsgType.QUITREQ, 1, 1, System.currentTimeMillis()));
+                                        new MsgHeader(MsgType.QUIT_REQ, 1, 1, System.currentTimeMillis()));
+                                sendData(request, codec, outToServer);
                                 break;
 
                             case "register":
@@ -121,7 +126,7 @@ public class ThreadedClientObject {
                                             email,
                                             password);
                                     sendData(request, codec, outToServer);
-                                    receiveData(codec, inFromServer);
+                                    response = receiveData(codec, inFromServer);
 
                                     if (response.header().type() == MsgType.ERROR) {
                                         ErrorMessage error;
@@ -141,8 +146,7 @@ public class ThreadedClientObject {
                         }
                     } while (!(userAction.toLowerCase().equals("quit")));
 
-                    sendData(request, codec, outToServer);
-                    System.out.println("Bye-Message sent:\n" + sendData);
+                    System.out.println("Bye-Message sent:\n");
                     clientSocket.close();
                     state = null;
                     break;

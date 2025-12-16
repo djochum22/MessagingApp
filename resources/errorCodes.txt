@@ -1,6 +1,7 @@
-1: Registration failed. Username already taken 
+1: Registration failed. User already in Database 
 2: Registration failed. Unknown registration error
 3: Login failed. Username doesn't exist.
 4: Login failed. Wrong password.
 5: WhoOnline failed. No User online.
-6. ChatReq failed. Username not found.
+6: ChatReq failed. Username not found.
+7:Undefined Error
