@@ -7,12 +7,14 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 
 import codec.SimpleTextCodec;
 import messages.Message;
 import messages.MsgHeader;
 import messages.MsgType;
 import messages.UDPmessages.ChatMessage;
+import messages.UDPmessages.ChatMessageACK;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
@@ -23,32 +25,34 @@ import messages.response.ChatReqOkMessage;
 import messages.response.ErrorMessage;
 
 public class ThreadedClient {
-    public static void main(String[] args) throws Exception {
+    private Socket clientSocket;
+    private DatagramSocket clientUdpSocket;
+    private States state = null;
+    private BufferedReader inFromUser;
+    private DataOutputStream outToServer;
+    private DataInputStream inFromServer;
+    private String userChoice, email, name, password, userAction;
+    private Message response = null, request = null;
+    private SimpleTextCodec codec;
+    private byte[] sendData = null;
+    private int requested_udpPort;
+    private UDPStates udpStates = null;
+    private InetAddress reqAddress = null;
 
-        // you can get around the local variables can't be dynamic in threads if you
-        // just turn them into arrays
-        Socket clientSocket;
-        DatagramSocket[] clientUdpSocket = { null };
-        States state = null;
-        BufferedReader inFromUser;
-        DataOutputStream outToServer;
-        DataInputStream inFromServer;
-        SimpleTextCodec codec = new SimpleTextCodec();
-        String userChoice, email, name, password, userAction;
-        final int[] requested_udpPort = { 0 };
-        Message response = null, request = null;
-        byte[] sendData = null;
-        byte[] receiveData = new byte[1024];
-        Thread UDP_thread;
-        final InetAddress[] clientIPAddress = { null };
+    public ThreadedClient() {
+        codec = new SimpleTextCodec();
+    }
 
-        // connect (tbh I don't know where to start the thread probably here but.. )
+    public static void main(String[] args) throws IOException {
+        ThreadedClient client = new ThreadedClient();
+        client.run();
+    }
 
+    public void run() throws IOException {
         try {
-            clientSocket = new Socket("localhost", 12345);
+            clientSocket = new Socket("localhost", 6324);
             System.out.println("Client connected end with \"END\"");
             state = States.CONNECTEDTOSERVER;
-
             inFromUser = new BufferedReader(new InputStreamReader(System.in));
             outToServer = new DataOutputStream(clientSocket.getOutputStream()); // // of byte-arrays
             inFromServer = new DataInputStream(clientSocket.getInputStream());
@@ -61,11 +65,8 @@ public class ThreadedClient {
         }
 
         while (state != null) {
-
-            switch (state) {
-
+            s: switch (state) {
                 case States.CONNECTEDTOSERVER:
-
                     outer: do {
 
                         do {
@@ -80,6 +81,7 @@ public class ThreadedClient {
                             case "quit":
                                 request = new QuitReqMessage(
                                         new MsgHeader(MsgType.QUIT_REQ, 1, 1, System.currentTimeMillis()));
+                                sendData(request, codec, outToServer);
                                 break;
 
                             case "register":
@@ -103,7 +105,7 @@ public class ThreadedClient {
                                         error = (ErrorMessage) response;
                                         System.out.println(
                                                 "Registration failed.Error: " + error.reason()
-                                                        + "\n Please try again or type 'quit'");
+                                                        + "\n Please try again or type");
                                         // we should define errorcodes to simplify this
                                         continue outer;
                                     }
@@ -126,7 +128,7 @@ public class ThreadedClient {
                                             email,
                                             password);
                                     sendData(request, codec, outToServer);
-                                    receiveData(codec, inFromServer);
+                                    response = receiveData(codec, inFromServer);
 
                                     if (response.header().type() == MsgType.ERROR) {
                                         ErrorMessage error;
@@ -140,19 +142,16 @@ public class ThreadedClient {
                                 System.out.println("Login successful");
                                 state = States.ONLINE;
 
-                                break;
-
+                                break s;
                             default:
                                 break;
                         }
                     } while (!(userAction.toLowerCase().equals("quit")));
 
-                    sendData(request, codec, outToServer);
-                    System.out.println("QuitMessage sent:\n");
+                    System.out.println("Bye-Message sent:\n");
                     clientSocket.close();
                     state = null;
                     break;
-
                 case States.ONLINE:
 
                     request = new WhoOnlineMessage(
@@ -171,7 +170,7 @@ public class ThreadedClient {
                         break;
                     }
 
-                    System.out.println("Who do want to chat with? Please type name or 'logut'");
+                    System.out.println("Who do want to chat with? Please type name or 'logout'");
 
                     userChoice = inFromUser.readLine();
 
@@ -182,9 +181,9 @@ public class ThreadedClient {
                                     new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
 
                             sendData(request, codec, outToServer);
-                            System.out.println("Logout-Message sent:\n" + sendData);
-                            state = States.CONNECTEDTOSERVER;
-
+                            System.out.println("Bye-Message sent:\n" + sendData);
+                            clientSocket.close();
+                            state = null;
                             break;
                         default: // default because there will be different names
                             request = new ChatReqMessage(
@@ -202,77 +201,20 @@ public class ThreadedClient {
                             }
 
                             ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
-                            requested_udpPort[0] = chatOk.getRequested_user_port();
+                            requested_udpPort = chatOk.getRequested_user_port();
+                            reqAddress = chatOk.getRequested_user_ipAddress();
+
                             state = States.CONNECTEDTOCLIENT;
+                            System.out.print("yay we can connect now UDP here");
                             break;
                     }
-
                 case States.CONNECTEDTOCLIENT:
-
-                    // TODO implement UDP-Communication here
-                    try {
-                        clientUdpSocket[0] = new DatagramSocket();
-                        System.out.println("ClientSocket established on port: " + clientUdpSocket[0].getLocalPort());
-                        clientUdpSocket[0].setSoTimeout(5000); // 5000 ms = 5 Sekunden
-                        System.out.println("SocketTimeout set to 5 seconds");
-                        // what is the name of client
-                        clientIPAddress[0] = InetAddress.getByName("localhost");
-
-                        System.out.println("ServerIP found: " + clientIPAddress[0]);
-                        // running = true;
-                    } catch (Exception e) {
-                        e.getMessage();
-                        e.printStackTrace();
-                        System.err.println("Initialization failed");
-                        clientUdpSocket[0].close();
-                        return;
-                    }
-
-                    do {
-                        Thread message_send_thread = new Thread(() -> {
-                            System.out.print("Message: ");
-                            String message = null;
-                            try {
-                                message = inFromUser.readLine();
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-
-                            ChatMessage chat_message = new ChatMessage(
-                                    new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
-
-                            byte[] msgData = codec.encode(chat_message);
-
-                            DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, clientIPAddress[0],
-                                    requested_udpPort[0]);
-
-                            try {
-                                clientUdpSocket[0].send(sendPacket);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        });
-                        message_send_thread.start();
-
-                    } while (!inFromUser.readLine().equals("quit"));
-
-                    // UDP_thread = new Thread(() -> {
-
-                    // });
-                    // UDP_thread.start();
-                    break;
-
-                default:
-                    break;
-
+                    UDPConnection(requested_udpPort, reqAddress);
             }
         }
-
-        System.out.println("Connection to Server closed");
-
     }
 
-    private static void sendData(Message msg, SimpleTextCodec codec, DataOutputStream outToServer) {
+    private void sendData(Message msg, SimpleTextCodec codec, DataOutputStream outToServer) {
         byte[] sendData = null;
         try {
             sendData = codec.encode(msg);
@@ -287,7 +229,7 @@ public class ThreadedClient {
         }
     }
 
-    private static Message receiveData(SimpleTextCodec codec, DataInputStream inFromServer) {
+    private Message receiveData(SimpleTextCodec codec, DataInputStream inFromServer) {
         Message response = null;
         byte[] receiveData = new byte[1024];
         try {
@@ -305,4 +247,82 @@ public class ThreadedClient {
         return response;
     }
 
+    private void UDPConnection(int port, InetAddress ipAddress) throws IOException {
+
+        udpStates = UDPStates.ACK_RECEIVED;
+        
+        try {
+            clientUdpSocket = new DatagramSocket();
+            System.out.println("ClientSocket established on port: " + clientUdpSocket.getLocalPort());
+            clientUdpSocket.setSoTimeout(5000); // 5000 ms = 5 Sekunden
+            System.out.println("SocketTimeout set to 5 seconds");
+
+        } catch (Exception e) {
+            e.getMessage();
+            e.printStackTrace();
+            System.err.println("Initialization failed");
+            clientUdpSocket.close();
+            return;
+        }
+
+        do {
+            Thread message_send_thread = new Thread(() -> {
+                byte[] msgData;
+                // two different packets to save the last packet incase of packet loss
+                DatagramPacket sendPacket = null, lastPacket = null;
+
+                System.out.print("Message: ");
+                String message = null;
+                try {
+                    if (udpStates == UDPStates.ACK_RECEIVED) {
+                        message = inFromUser.readLine();
+
+                        ChatMessage chat_message = new ChatMessage(
+                            new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
+
+                        msgData = codec.encode(chat_message);
+
+                        sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, port);
+
+                        clientUdpSocket.send(sendPacket);
+                        lastPacket = sendPacket;
+
+                    } else if (udpStates == UDPStates.WAIT_FOR_ACK) {
+                        clientUdpSocket.send(lastPacket);
+                    } else if (udpStates == UDPStates.MESSAGE_RCV) {
+                        ChatMessageACK chat_message_ack = new ChatMessageACK(0);
+                        msgData = chat_message_ack.data();
+                        sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, port);
+                    }
+                } catch (IOException e) {
+                    e.getMessage();
+                }
+            });
+            message_send_thread.start();
+
+            Thread message_receive_thread = new Thread(() -> {
+                byte[] receiveData = new byte[1024];
+                Message udp_message;
+
+                try {
+                    DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+                    clientUdpSocket.receive(receivePacket);
+                    
+                    // if it is an ACK because it would just be a zero
+                    if (receivePacket.getData()[0] == 0) {
+                        udpStates = UDPStates.ACK_RECEIVED;
+                    } else if (udpStates != UDPStates.WAIT_FOR_ACK){
+                        udp_message = codec.decode(receiveData);
+
+                        System.out.println(udp_message.toString());
+                    }
+                } catch (SocketTimeoutException c) {
+                    udpStates = UDPStates.WAIT_FOR_ACK;
+                } catch(IOException e) {
+                    e.getMessage();
+                }
+            });
+            message_receive_thread.start();
+        } while (!(inFromUser.readLine().equals("exit")) && state == States.CONNECTEDTOCLIENT);
+    }
 }
