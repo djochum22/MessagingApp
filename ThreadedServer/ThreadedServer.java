@@ -6,6 +6,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.logging.ErrorManager;
+
 import codec.SimpleTextCodec;
 import messages.Message;
 import messages.MsgHeader;
@@ -14,6 +16,7 @@ import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.RegisterMessage;
 import messages.response.ChatReqOkMessage;
+import messages.response.ErrorMessage;
 import messages.response.ForwardChatRequestMessage;
 import messages.response.OkMessage;
 import messages.response.Quit;
@@ -41,105 +44,144 @@ public class ThreadedServer {
      }
 
      public void run_forever() {
-         
-               try {
-                    final Socket socket = this.welcomeSocket.accept();
-                    System.out.println("Client hat sich verbunden: " + socket.getInetAddress());
 
-                    final Thread thread;
-                    thread= new Thread(() -> {
-                         DataInputStream inFromClient = null;
-                         DataOutputStream outToClient = null;
-                         User currUser = null;
+          try {
+               final Socket socket = this.welcomeSocket.accept();
+               System.out.println("Client hat sich verbunden: " + socket.getInetAddress());
 
-                         try {
-                              inFromClient = new DataInputStream(socket.getInputStream());
-                              outToClient = new DataOutputStream(socket.getOutputStream());
-                         } catch (IOException e) {
-                              e.printStackTrace();
+               final Thread thread;
+               thread = new Thread(() -> {
+                    DataInputStream inFromClient = null;
+                    DataOutputStream outToClient = null;
+                    User currUser = null;
+
+                    try {
+                         inFromClient = new DataInputStream(socket.getInputStream());
+                         outToClient = new DataOutputStream(socket.getOutputStream());
+                    } catch (IOException e) {
+                         e.printStackTrace();
+                    }
+
+                    clientMessage = receiveData(codec, inFromClient);
+
+                    do {
+                         switch (clientMessage.header().type()) {
+                              case MsgType.REGISTER:
+
+                                   RegisterMessage message = (RegisterMessage) clientMessage;
+
+                                   int udpPort = (int) (Math.random() * 9000) + 1000;
+                                   currUser = new User(message.getEmail(), message.getUsername(),
+                                             message.getPassword(), socket.getInetAddress(), udpPort);
+
+                                   if (userManagement.getRegisteredUsers().contains(currUser)) {
+                                        response = new ErrorMessage(
+                                                  new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()), 1);
+                                        sendData(response, codec, outToClient);
+                                        System.out.println("Registration ErrorMessage sent.");
+                                        break;
+
+                                   }
+                                   userManagement.register(currUser);
+                                   response = new OkMessage(
+                                             new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
+                                   sendData(response, codec, outToClient);
+                                   System.out.println("Registration Ok message sent.");
+                                   break;
+
+                              case MsgType.LOGIN:
+                                   LoginMessage loginMsg = (LoginMessage) clientMessage;
+                                   if (userManagement.findRegisteredUser(loginMsg.getEmail()) == null) {
+                                        response = new ErrorMessage(
+                                                  new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()), 3);
+                                        sendData(response, codec, outToClient);
+                                        System.out.println("Login ErrorMessage sent.");
+                                        break;
+
+                                   } else if (userManagement.findRegisteredUser(loginMsg.getEmail())
+                                             .getPassword() != loginMsg.getPassword()) {
+                                        response = new ErrorMessage(
+                                                  new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()), 4);
+                                        sendData(response, codec, outToClient);
+                                        System.out.println("Login ErrorMessage sent.");
+                                        break;
+
+                                   }
+                                   userManagement.setOnline(userManagement.findRegisteredUser(loginMsg.getEmail()));
+
+                                   response = new OkMessage(
+                                             new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
+                                   sendData(response, codec, outToClient);
+                                   System.out.println("Login Ok message sent.");
+                                   break;
+
+                              case MsgType.WHO_ONLINE:
+                                   if (userManagement.getOnlineUsers().isEmpty()) {
+                                        response = new ErrorMessage(
+                                                  new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()), 5);
+                                        sendData(response, codec, outToClient);
+                                        System.out.println("No OnlineUsers. ErrorMessage sent.");
+                                        break;
+
+                                   }
+                                   response = new UsersOnlineMessage(
+                                             new MsgHeader(MsgType.USERS_ONLINE, 1, 1, System.currentTimeMillis()),
+                                             userManagement.getOnlineUsers());
+                                   sendData(response, codec, outToClient);
+                                   System.out.println("List of Online-Users sent.");
+                                   break;
+
+                              case MsgType.CHAT_REQ:
+                                   ChatReqMessage chatReqMessage = (ChatReqMessage) clientMessage;
+                                   String requested_user = chatReqMessage.getRequested_user();
+                                   User reqUser = userManagement.findRegisteredUser(requested_user);
+
+                                   if (reqUser == null) {
+                                        response = new ErrorMessage(
+                                                  new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()), 5);
+                                        sendData(response, codec, outToClient);
+                                        System.out.println("User not found. ErrorMessage sent.");
+                                        break;
+
+                                   }
+
+                                   response = new ChatReqOkMessage(
+                                             new MsgHeader(MsgType.USERS_ONLINE, 1, 1, System.currentTimeMillis()),
+                                             reqUser.getUdpPort());
+                                   sendData(response, codec, outToClient);
+                                   System.out.println("Requested UserPort sent.");
+                                   break;
+
+                              case MsgType.QUIT:
+                                   response = new Quit(
+                                             new MsgHeader(MsgType.QUIT, 1, 1, System.currentTimeMillis()));
+                                   sendData(response, codec, outToClient);
+                                   System.out.println("Quit message sent.");
+                                   break;
+
+                              case MsgType.LOGOUT:
+
+                                   userManagement.setOffline(
+                                             userManagement.findRegisteredUser(socket.getInetAddress()));
+
+                                   response = new OkMessage(
+                                             new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
+                                   sendData(response, codec, outToClient);
+                                   System.out.println("Logout Ok message sent. User looged out.");
+                                   break;
+
+                              default:
+                                   break;
+
                          }
+                    } while (!(response instanceof Quit));
 
-                         clientMessage = receiveData(codec, inFromClient);
+               });
+               thread.start();
+          } catch (IOException e) {
+               e.printStackTrace();
+          }
 
-                         do {
-                              switch (clientMessage.header().type()) {
-                                   case MsgType.REGISTER:
-
-                                        // TODO CHECK FOR EXISTING USERNAME
-
-                                        RegisterMessage message = (RegisterMessage) clientMessage;
-
-                                        int udpPort = (int) (Math.random() * 9000) + 1000;
-                                        currUser = new User(message.getEmail(), message.getUsername(),
-                                                  message.getPassword(), socket.getInetAddress(), udpPort);
-                                        userManagement.register(currUser);
-                                        response = new OkMessage(
-                                                  new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
-                                        sendData(response, codec, outToClient);
-                                        System.out.println("Registration Ok message sent.");
-                                        break;
-
-                                   case MsgType.LOGIN:
-                                        LoginMessage loginMsg = (LoginMessage) clientMessage;
-                                        userManagement
-                                                  .setOnline(userManagement.findRegisteredUser(loginMsg.getEmail()));
-
-                                        response = new OkMessage(
-                                                  new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
-                                        sendData(response, codec, outToClient);
-                                        System.out.println("Login Ok message sent.");
-                                        break;
-
-                                   case MsgType.WHO_ONLINE:
-                                        response = new UsersOnlineMessage(
-                                                  new MsgHeader(MsgType.USERS_ONLINE, 1, 1, System.currentTimeMillis()),
-                                                  userManagement.getOnlineUsers());
-                                        sendData(response, codec, outToClient);
-                                        System.out.println("List of Online-Users sent.");
-                                        break;
-
-                                   case MsgType.CHAT_REQ:
-                                        ChatReqMessage chatReqMessage = (ChatReqMessage) clientMessage;
-                                        String requested_user = chatReqMessage.getRequested_user();
-                                        User reqUser = userManagement.findRegisteredUser(requested_user);
-
-                                        response = new ChatReqOkMessage(
-                                                  new MsgHeader(MsgType.USERS_ONLINE, 1, 1, System.currentTimeMillis()),
-                                                  reqUser.getUdpPort());
-                                        sendData(response, codec, outToClient);
-                                        System.out.println("Requested UserPort sent.");
-                                        break;
-
-                                   case MsgType.QUIT:
-                                        response = new Quit(
-                                                  new MsgHeader(MsgType.QUIT, 1, 1, System.currentTimeMillis()));
-                                        sendData(response, codec, outToClient);
-                                        System.out.println("Quit message sent.");
-                                        break;
-
-                                   case MsgType.LOGOUT:
-
-                                        userManagement.setOffline(
-                                                  userManagement.findRegisteredUser(socket.getInetAddress()));
-
-                                        response = new OkMessage(
-                                                  new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
-                                        sendData(response, codec, outToClient);
-                                        System.out.println("Logout Ok message sent. User looged out.");
-                                        break;
-
-                                   default:
-                                        break;
-
-                              }
-                         } while (!(response instanceof Quit));
-                       
-                    });
-                    thread.start();
-               } catch (IOException e) {
-                    e.printStackTrace();
-               }
-          
      }
 
      private static void sendData(Message msg, SimpleTextCodec codec, DataOutputStream outToClient) {
