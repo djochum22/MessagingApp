@@ -9,15 +9,17 @@ import messages.MsgType;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
-import messages.request.QuitReqMessage;
+import messages.request.QuitReq;
+import messages.request.QuitReq;
 import messages.request.RegisterMessage;
 import messages.request.WhoOnlineMessage;
 import messages.response.ChatReqDeniedMessage;
 import messages.response.ChatReqOkMessage;
+import messages.response.ErrorMessage;
 import messages.response.ForwardChatRequestMessage;
 import messages.response.OkMessage;
 import messages.response.SendPortMessage;
-import messages.UDP_messages.ChatMessage;
+import messages.UDPmessages.ChatMessage;
 
 public final class SimpleTextCodec {
 
@@ -96,6 +98,7 @@ public final class SimpleTextCodec {
         int requested_user_port;
         int port;
         String text;
+        int errorCode;
 
         for (String part : bodyLines) {
 
@@ -126,7 +129,7 @@ public final class SimpleTextCodec {
                     msg = new LogoutMessage(header);
                     break;
                 case "QUITREQ":
-                    msg = new QuitReqMessage(header);
+                    msg = new QuitReq(header);
                     break;
                 case "OK":
                     msg = new OkMessage(header);
@@ -137,7 +140,6 @@ public final class SimpleTextCodec {
                     break;
                 case "USERS_ONLINE":
                     // TODO not certain about the format for the 
-                    // split the toString of the list and turn into a new arraylist
                 case "SEND_PORT":
                     port = Integer.parseInt(bodyFields[0]);
                     username = bodyFields[1];
@@ -148,7 +150,9 @@ public final class SimpleTextCodec {
                     msg = new ChatReqDeniedMessage(header, requested_user);
                     break;
                 case "ERROR":
-                    // TODO should I read out of the file the error messages?
+                    errorCode= Integer.parseInt(bodyFields[0]);
+                    msg = new ErrorMessage(header, errorCode);
+                    break;
                 case "FWD_CHAT_REQ":
                     requested_user = bodyFields[0];
                     msg = new ForwardChatRequestMessage(header, requested_user);
