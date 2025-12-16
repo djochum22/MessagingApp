@@ -29,22 +29,22 @@ import messages.response.ErrorMessage;
 public class ThreadedClient {
     public static void main(String[] args) throws Exception {
 
-        // you can get around the local variables can't be dynamic in threads if you just turn them into arrays
+        // you can get around the local variables can't be dynamic in threads if you
+        // just turn them into arrays
         Socket clientSocket;
-        DatagramSocket[] clientUdpSocket = {null};
+        DatagramSocket[] clientUdpSocket = { null };
         States state = null;
         BufferedReader inFromUser;
         DataOutputStream outToServer;
         DataInputStream inFromServer;
         SimpleTextCodec codec = new SimpleTextCodec();
         String userChoice, email, name, password, userAction;
-        final int[] requested_udpPort = {0};
+        final int[] requested_udpPort = { 0 };
         Message response = null, request = null;
         byte[] sendData = null;
         byte[] receiveData = new byte[1024];
         Thread UDP_thread;
-        final InetAddress[] clientIPAddress = {null};
-
+        final InetAddress[] clientIPAddress = { null };
 
         // connect (tbh I don't know where to start the thread probably here but.. )
 
@@ -54,7 +54,7 @@ public class ThreadedClient {
             state = States.CONNECTEDTOSERVER;
 
             inFromUser = new BufferedReader(new InputStreamReader(System.in));
-            outToServer = new DataOutputStream(clientSocket.getOutputStream());                                                                  // // of byte-arrays
+            outToServer = new DataOutputStream(clientSocket.getOutputStream()); // // of byte-arrays
             inFromServer = new DataInputStream(clientSocket.getInputStream());
 
         } catch (Exception e) {
@@ -64,7 +64,7 @@ public class ThreadedClient {
             return;
         }
 
-        while (state!=null) {
+        while (state != null) {
 
             switch (state) {
 
@@ -82,7 +82,8 @@ public class ThreadedClient {
 
                         switch (userAction) {
                             case "quit":
-                                request = new QuitReqMessage(new MsgHeader(MsgType.QUITREQ, 1, 1, System.currentTimeMillis()));
+                                request = new QuitReqMessage(
+                                        new MsgHeader(MsgType.QUITREQ, 1, 1, System.currentTimeMillis()));
                                 break;
 
                             case "register":
@@ -105,7 +106,8 @@ public class ThreadedClient {
                                         ErrorMessage error;
                                         error = (ErrorMessage) response;
                                         System.out.println(
-                                                "Registration failed.Error: " + error.reason() + "\n Please try again or type");
+                                                "Registration failed.Error: " + error.reason()
+                                                        + "\n Please try again or type 'quit'");
                                         // we should define errorcodes to simplify this
                                         continue outer;
                                     }
@@ -150,7 +152,7 @@ public class ThreadedClient {
                     } while (!(userAction.toLowerCase().equals("quit")));
 
                     sendData(request, codec, outToServer);
-                    System.out.println("Bye-Message sent:\n" + sendData);
+                    System.out.println("QuitMessage sent:\n");
                     clientSocket.close();
                     state = null;
                     break;
@@ -179,14 +181,14 @@ public class ThreadedClient {
 
                     switch (userChoice) {
                         case "logout":
-                
+
                             request = new LogoutMessage(
                                     new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
 
                             sendData(request, codec, outToServer);
-                            System.out.println("Bye-Message sent:\n" + sendData);
-                            clientSocket.close();
-                            state = null;
+                            System.out.println("Logout-Message sent:\n" + sendData);
+                            state = States.CONNECTEDTOSERVER;
+
                             break;
                         default: // default because there will be different names
                             request = new ChatReqMessage(
@@ -205,9 +207,6 @@ public class ThreadedClient {
 
                             ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
                             requested_udpPort[0] = chatOk.getRequested_user_port();
-
-                            // TODO establish UDP Connection here
-                            // this doesn't make sense sense we aren't connecting to UDP we are just sending messages so nothing needs to be here
                             state = States.CONNECTEDTOCLIENT;
                             break;
                     }
@@ -243,12 +242,14 @@ public class ThreadedClient {
                                 e.printStackTrace();
                             }
 
-                            ChatMessage chat_message = new ChatMessage(new MsgHeader(MsgType.CHAT_MSG,1, 1, System.currentTimeMillis()), message);
-                            
+                            ChatMessage chat_message = new ChatMessage(
+                                    new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
+
                             byte[] msgData = codec.encode(chat_message);
 
-                            DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, clientIPAddress[0], requested_udpPort[0]);
-                            
+                            DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, clientIPAddress[0],
+                                    requested_udpPort[0]);
+
                             try {
                                 clientUdpSocket[0].send(sendPacket);
                             } catch (IOException e) {
@@ -257,14 +258,9 @@ public class ThreadedClient {
                         });
                         message_send_thread.start();
 
-
-
                     } while (!inFromUser.readLine().equals("quit"));
 
-
-
                     // UDP_thread = new Thread(() -> {
-                        
 
                     // });
                     // UDP_thread.start();
