@@ -126,9 +126,9 @@ public final class SimpleTextCodec {
                 case "LOGOUT":
                     msg = new LogoutMessage(header);
                     break;
-                case "QUITREQ":
-                    msg = new QuitReq(header);
-                    break;
+                // case "QUITREQ":
+                //     msg = new QuitReq(header);
+                //     break;
                 case "OK":
                     msg = new OkMessage(header);
                     break;

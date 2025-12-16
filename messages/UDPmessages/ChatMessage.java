@@ -1,10 +1,5 @@
-<<<<<<<< HEAD:messages/UDP_messages/ChatMessage.java
-package messages.UDP_messages;
-========
+
 package messages.UDPmessages;
-
-
->>>>>>>> d62ff79ef32745d57ffbf35f56908e59485cd4ec:messages/UDPmessages/ChatMessage.java
 
 import messages.Message;
 import messages.MsgHeader;
