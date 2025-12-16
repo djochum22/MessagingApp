@@ -137,6 +137,7 @@ public final class SimpleTextCodec {
                     break;
                 case "USERS_ONLINE":
                     // TODO not certain about the format for the 
+                    // split the toString of the list and turn into a new arraylist
                 case "SEND_PORT":
                     port = Integer.parseInt(bodyFields[0]);
                     username = bodyFields[1];

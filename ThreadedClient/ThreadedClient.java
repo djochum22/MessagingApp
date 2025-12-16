@@ -11,6 +11,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 
 import codec.SimpleTextCodec;
 import messages.Message;
@@ -254,20 +255,30 @@ public class ThreadedClient {
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
+
+                            // TODO receive ACK
                         });
                         message_send_thread.start();
+
+                        Thread message_receive_thread = new Thread(() -> {
+                            try {
+                                byte[] receiveUDPData = new byte[1024];
+
+                                DatagramPacket receivePacket = new DatagramPacket(receiveUDPData, receiveUDPData.length);
+
+
+                            } catch(SocketTimeoutException e) {
+                                e.getMessage();
+                            }
+
+                            // TODO send ACK
+                        });
+                        message_receive_thread.start();
 
 
 
                     } while (!inFromUser.readLine().equals("quit"));
 
-
-
-                    // UDP_thread = new Thread(() -> {
-                        
-
-                    // });
-                    // UDP_thread.start();
                     break;
 
                 default:
