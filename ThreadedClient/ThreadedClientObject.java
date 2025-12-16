@@ -211,7 +211,7 @@ public class ThreadedClientObject {
                             break;
                     }
                 case States.CONNECTEDTOCLIENT:
-                    UDPConnection(requested_udpPort, null);
+                    UDPConnection(requested_udpPort, reqAddress);
             }
         }
     }
