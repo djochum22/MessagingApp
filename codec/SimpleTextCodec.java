@@ -1,6 +1,7 @@
 package codec;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import messages.Message;
@@ -17,6 +18,7 @@ import messages.response.ErrorMessage;
 import messages.response.ForwardChatRequestMessage;
 import messages.response.OkMessage;
 import messages.response.SendPortMessage;
+import messages.response.UsersOnlineMessage;
 import messages.UDPmessages.ChatMessage;
 
 public final class SimpleTextCodec {
@@ -52,7 +54,6 @@ public final class SimpleTextCodec {
 
     public MsgHeader constructHeader(String headerLines[]) throws Exception {
 
-    
         MsgType type = null;
         int msgId = 0;
         int correlationId = 0;
@@ -97,6 +98,7 @@ public final class SimpleTextCodec {
         int port;
         String text;
         int errorCode;
+        ArrayList<String> onlineUsers = new ArrayList<>();
 
         for (String part : bodyLines) {
 
@@ -127,8 +129,8 @@ public final class SimpleTextCodec {
                     msg = new LogoutMessage(header);
                     break;
                 // case "QUITREQ":
-                //     msg = new QuitReq(header);
-                //     break;
+                // msg = new QuitReq(header);
+                // break;
                 case "OK":
                     msg = new OkMessage(header);
                     break;
@@ -137,7 +139,15 @@ public final class SimpleTextCodec {
                     msg = new ChatReqOkMessage(header, requested_user_port);
                     break;
                 case "USERS_ONLINE":
-                    // TODO not certain about the format for the 
+                    for (String u : bodyFields) { // not sure if this works because i can't debug the list atm and i don't know wether we get a lot of bodyfields or just one containing all the names
+
+                    // if there is only bodyFields[0]: 
+                    // for (String u: bodyfields[0].split(",")){
+                    // onlineUsers.add(u)}  
+                        onlineUsers.add(u);
+                    }
+                    msg = new UsersOnlineMessage(header, onlineUsers); 
+                    break;
                 case "SEND_PORT":
                     port = Integer.parseInt(bodyFields[0]);
                     username = bodyFields[1];
@@ -148,7 +158,7 @@ public final class SimpleTextCodec {
                     msg = new ChatReqDeniedMessage(header, requested_user);
                     break;
                 case "ERROR":
-                    errorCode= Integer.parseInt(bodyFields[0]);
+                    errorCode = Integer.parseInt(bodyFields[0]);
                     msg = new ErrorMessage(header, errorCode);
                     break;
                 case "FWD_CHAT_REQ":
