@@ -1,5 +1,6 @@
 package codec;
 
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -96,6 +97,7 @@ public final class SimpleTextCodec {
         String password;
         String requested_user = null;
         int requested_user_port;
+        InetAddress reqAddress = null;
         int port;
         String text;
         int errorCode;
@@ -137,7 +139,8 @@ public final class SimpleTextCodec {
                     break;
                 case "CHAT_REQ_OK":
                     requested_user_port = Integer.parseInt(bodyFields[0]);
-                    msg = new ChatReqOkMessage(header, requested_user_port);
+                    reqAddress = InetAddress.getByName(bodyFields[1]);
+                    msg = new ChatReqOkMessage(header, requested_user_port, reqAddress);
                     break;
                 case "USERS_ONLINE":
 

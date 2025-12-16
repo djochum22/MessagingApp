@@ -38,6 +38,7 @@ public class ThreadedClientObject {
     private byte[] receiveMessages;
     private int requested_udpPort;
     private UDPStates udpStates = null;
+    private InetAddress reqAddress = null;
 
     public ThreadedClientObject() {
         codec = new SimpleTextCodec();
@@ -203,11 +204,14 @@ public class ThreadedClientObject {
 
                             ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
                             requested_udpPort = chatOk.getRequested_user_port();
+                            reqAddress = chatOk.getRequested_user_ipAddress();
 
                             state = States.CONNECTEDTOCLIENT;
                             System.out.print("yay we can connect now UDP here");
                             break;
                     }
+                case States.CONNECTEDTOCLIENT:
+                    UDPConnection(requested_udpPort, null);
             }
         }
     }

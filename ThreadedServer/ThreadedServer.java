@@ -152,7 +152,7 @@ public class ThreadedServer {
 
                               response = new ChatReqOkMessage(
                                         new MsgHeader(MsgType.CHAT_REQ_OK, 1, 1, System.currentTimeMillis()),
-                                        reqUser.getUdpPort());
+                                        reqUser.getUdpPort(), reqUser.getIp());
                               sendData(response, codec, outToClient);
                               System.out.println("Requested UserPort sent.");
                               break;

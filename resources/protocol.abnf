@@ -30,7 +30,7 @@ request = register / login / chat_req / who_online / logout / fwd_chat_req
 
 register ="REGISTER" SP email SP username SP password CRLF
 login = "LOGIN" SP email SP password CRLF
-chat_req = "CHAT_REQ" SP requested_user SP requesting_user_port CRLF
+chat_req = "CHAT_REQ" SP requested_user SP requesting_user_port SP requested_ip_address CRLF
 who_online = "WHO_ONLINE" CRLF
 logout = "LOGOUT" CRLF
 quit_req = "QUITREQ" CRLF
