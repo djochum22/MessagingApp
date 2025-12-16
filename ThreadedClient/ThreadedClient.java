@@ -83,7 +83,7 @@ public class ThreadedClient {
                         switch (userAction) {
                             case "quit":
                                 request = new QuitReqMessage(
-                                        new MsgHeader(MsgType.QUITREQ, 1, 1, System.currentTimeMillis()));
+                                        new MsgHeader(MsgType.QUIT_REQ, 1, 1, System.currentTimeMillis()));
                                 break;
 
                             case "register":

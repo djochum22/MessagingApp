@@ -10,6 +10,7 @@ import messages.MsgType;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
+import messages.request.QuitReqMessage;
 import messages.request.RegisterMessage;
 import messages.request.WhoOnlineMessage;
 import messages.response.ChatReqDeniedMessage;
@@ -128,9 +129,9 @@ public final class SimpleTextCodec {
                 case "LOGOUT":
                     msg = new LogoutMessage(header);
                     break;
-                // case "QUITREQ":
-                // msg = new QuitReq(header);
-                // break;
+                case "QUIT_REQ":
+                    msg = new QuitReqMessage(header);
+                    break;
                 case "OK":
                     msg = new OkMessage(header);
                     break;
@@ -140,24 +141,26 @@ public final class SimpleTextCodec {
                     break;
                 case "USERS_ONLINE":
 
-                //according to chatty the toString() of an Arraylist returns [element1, element2]
-                //therefor the following method should work 
-
+                    // according to chatty the toString() of an Arraylist returns [element1,
+                    // element2]
+                    // therefor the following method should work
 
                     // String raw = bodyFields[0];
                     // raw = raw.trim();
 
                     // if (raw.startsWith("[") && raw.endsWith("]")) {
-                    //     raw = raw.substring(1, raw.length() - 1);
+                    // raw = raw.substring(1, raw.length() - 1);
 
-                    //     if (!raw.isBlank()) {
-                    //         for (String u : raw.split(",")) {
-                    //             onlineUsers.add(u.trim());
-                    //         }
-                    //     }
+                    // if (!raw.isBlank()) {
+                    // for (String u : raw.split(",")) {
+                    // onlineUsers.add(u.trim());
+                    // }
+                    // }
                     // }
 
-                    for (String u : bodyFields) { // not sure if this works because i can't debug the list atm and i don't know wether we get a lot of bodyfields or just one containing all the names
+                    for (String u : bodyFields) { // not sure if this works because i can't debug the list atm and i
+                                                  // don't know wether we get a lot of bodyfields or just one containing
+                                                  // all the names
                         onlineUsers.add(u);
                     }
                     msg = new UsersOnlineMessage(header, onlineUsers);
