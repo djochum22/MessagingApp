@@ -156,7 +156,7 @@ public final class SimpleTextCodec {
                     // onlineUsers.add(u.trim());
                     // }
                     // }
-                    // }
+                    // }....
 
                     for (String u : bodyFields) { // not sure if this works because i can't debug the list atm and i
                                                   // don't know wether we get a lot of bodyfields or just one containing
