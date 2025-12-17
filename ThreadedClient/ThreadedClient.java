@@ -173,45 +173,64 @@ public class ThreadedClient {
                         break;
                     }
 
-                    System.out.println("Who do want to chat with? Please type name or 'logout'");
-                    System.out.println(response.toString());
+                    do {
+                        System.out.println("Who do want to chat with? Please type name or 'logout' or 'refresh'");
+                        System.out.println(response.toString());
 
-                    userChoice = inFromUser.readLine();
+                        userChoice = inFromUser.readLine();
 
-                    if (userChoice.equals("logout")) {
+                        if (userChoice.equals("logout")) {
 
-                        request = new LogoutMessage(
-                                new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
+                            request = new LogoutMessage(
+                                    new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
 
-                        sendData(request, codec, outToServer);
-                        System.out.println("Bye-Message sent:\n" + sendData);
-                        clientSocket.close();
-                        state = null;
+                            sendData(request, codec, outToServer);
+                            System.out.println("Bye-Message sent:\n" + sendData);
+                            clientSocket.close();
+                            state = null;
+                            return;
 
-                    } else {
+                        } else if (userChoice.equals("refresh")) {
+                            request = new WhoOnlineMessage(
+                                    new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
+                            sendData = codec.encode(request);
 
-                        request = new ChatReqMessage(
-                                new MsgHeader(MsgType.CHAT_REQ, 1, 1, System.currentTimeMillis()), userChoice);
-                        sendData(request, codec, outToServer);
-                        response = receiveData(codec, inFromServer);
+                            sendData(request, codec, outToServer);
+                            response = receiveData(codec, inFromServer);
 
-                        if (response.header().type() == MsgType.ERROR) {
-                            ErrorMessage error;
-                            error = (ErrorMessage) response;
-                            System.out.println("Chat could not be established. Error: " + error.reason()
-                                    + ",\r\n You will be logged out");
-                            state = States.CONNECTEDTOSERVER;
-                            break;
+                            if (response.header().type() == MsgType.ERROR) {
+                                ErrorMessage error;
+                                error = (ErrorMessage) response;
+                                System.out
+                                        .println("No online users. Error: " + error.reason()
+                                                + ",\r\n You will be logged out");
+                                state = States.CONNECTEDTOSERVER;
+                                break;
+                            }
                         }
+                    } while (userChoice.equals("refresh"));
 
-                        ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
-                        requested_udpPort = chatOk.getRequested_user_port();
-                        reqAddress = InetAddress.getByName(chatOk.getRequested_user_ipAddress());
+                    request = new ChatReqMessage(
+                            new MsgHeader(MsgType.CHAT_REQ, 1, 1, System.currentTimeMillis()), userChoice);
+                    sendData(request, codec, outToServer);
+                    response = receiveData(codec, inFromServer);
 
-                        state = States.CONNECTEDTOCLIENT;
-                        System.out.print("yay we can connect now UDP here");
+                    if (response.header().type() == MsgType.ERROR) {
+                        ErrorMessage error;
+                        error = (ErrorMessage) response;
+                        System.out.println("Chat could not be established. Error: " + error.reason()
+                                + ",\r\n You will be logged out");
+                        state = States.CONNECTEDTOSERVER;
                         break;
                     }
+
+                    ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
+                    requested_udpPort = chatOk.getRequested_user_port();
+                    reqAddress = InetAddress.getByName(chatOk.getRequested_user_ipAddress());
+
+                    state = States.CONNECTEDTOCLIENT;
+                    System.out.print("yay we can connect now UDP here");
+                    break;
                 case States.CONNECTEDTOCLIENT:
                     UDPConnection(requested_udpPort, reqAddress);
             }
