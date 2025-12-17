@@ -39,6 +39,7 @@ public class ThreadedClient {
     private SimpleTextCodec codec;
     private byte[] sendData = null;
     private int requested_udpPort;
+    private int personal_port;
     private UDPStates udpStates = null;
     private InetAddress reqAddress = null;
 
@@ -227,12 +228,13 @@ public class ThreadedClient {
                     ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
                     requested_udpPort = chatOk.getRequested_user_port();
                     reqAddress = InetAddress.getByName(chatOk.getRequested_user_ipAddress());
+                    personal_port = chatOk.getPersonal_port();
 
                     state = States.CONNECTEDTOCLIENT;
                     System.out.print("yay we can connect now UDP here");
                     break;
                 case States.CONNECTEDTOCLIENT:
-                    UDPConnection(requested_udpPort, reqAddress);
+                    UDPConnection(requested_udpPort, reqAddress, personal_port);
             }
         }
     }
@@ -270,11 +272,12 @@ public class ThreadedClient {
         return response;
     }
 
-    private void UDPConnection(int port, InetAddress ipAddress) throws IOException {
+    private void UDPConnection(int users_port, InetAddress ipAddress, int personal_port) throws IOException {
 
         udpStates = UDPStates.ACK_RECEIVED;
 
         try {
+            // TODO bind this to the assigned port we are given
             clientUdpSocket = new DatagramSocket();
             System.out.println("ClientSocket established on port: " + clientUdpSocket.getLocalPort());
             clientUdpSocket.setSoTimeout(5000); // 5000 ms = 5 Sekunden
@@ -305,7 +308,7 @@ public class ThreadedClient {
 
                         msgData = codec.encode(chat_message);
 
-                        sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, port);
+                        sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);
 
                         clientUdpSocket.send(sendPacket);
                         lastPacket = sendPacket;
@@ -315,7 +318,7 @@ public class ThreadedClient {
                     } else if (udpStates == UDPStates.MESSAGE_RCV) {
                         ChatMessageACK chat_message_ack = new ChatMessageACK(0);
                         msgData = chat_message_ack.data();
-                        sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, port);
+                        sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);
                     }
                 } catch (IOException e) {
                     e.getMessage();
