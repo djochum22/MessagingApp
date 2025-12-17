@@ -22,7 +22,7 @@ public class ChatReqMessage implements Message {
 
     @Override
     public String toString() {
-        return String.format("PIN %s %d\r\n", requested_user /*, requesting_user_port*/); // according to ABNF abheben_req = "ABHEBEN_REQ" SP card SP amount CRLF
+        return String.format("CHAT_REQ %s\r\n", requested_user /*, requesting_user_port*/);
     }
 
     public String getRequested_user() {

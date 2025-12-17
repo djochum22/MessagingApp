@@ -48,7 +48,7 @@ public class UserManagement {
         User user = null;
 
         for (User u : registeredUsers) {
-            if (u.getIp() == ip) {
+            if (u.getIpObject() == ip) {
                 user = u;
                 break;
             }

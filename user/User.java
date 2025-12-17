@@ -30,7 +30,11 @@ public class User {
         return password;
     }
 
-    public InetAddress getIp() {
+    public String getIp() {
+        return ip.getHostName();
+    }
+
+    public InetAddress getIpObject() {
         return ip;
     }
 

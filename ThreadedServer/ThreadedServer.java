@@ -154,7 +154,7 @@ public class ThreadedServer {
                                         new MsgHeader(MsgType.CHAT_REQ_OK, 1, 1, System.currentTimeMillis()),
                                         reqUser.getUdpPort(), reqUser.getIp());
                               sendData(response, codec, outToClient);
-                              System.out.println("Requested UserPort sent.");
+                              System.out.println("Requested UDP Info sent.");
                               break;
 
                          case MsgType.QUIT_REQ:

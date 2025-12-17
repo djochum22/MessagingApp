@@ -162,7 +162,7 @@ public class ThreadedClient {
                     sendData = codec.encode(request);
 
                     sendData(request, codec, outToServer);
-                    receiveData(codec, inFromServer);
+                    response = receiveData(codec, inFromServer);
 
                     if (response.header().type() == MsgType.ERROR) {
                         ErrorMessage error;
@@ -174,42 +174,43 @@ public class ThreadedClient {
                     }
 
                     System.out.println("Who do want to chat with? Please type name or 'logout'");
+                    System.out.println(response.toString());
 
                     userChoice = inFromUser.readLine();
 
-                    switch (userChoice) {
-                        case "logout":
+                    if (userChoice.equals("logout")) {
 
-                            request = new LogoutMessage(
-                                    new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
+                        request = new LogoutMessage(
+                                new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
 
-                            sendData(request, codec, outToServer);
-                            System.out.println("Bye-Message sent:\n" + sendData);
-                            clientSocket.close();
-                            state = null;
+                        sendData(request, codec, outToServer);
+                        System.out.println("Bye-Message sent:\n" + sendData);
+                        clientSocket.close();
+                        state = null;
+
+                    } else {
+
+                        request = new ChatReqMessage(
+                                new MsgHeader(MsgType.CHAT_REQ, 1, 1, System.currentTimeMillis()), userChoice);
+                        sendData(request, codec, outToServer);
+                        receiveData(codec, inFromServer);
+
+                        if (response.header().type() == MsgType.ERROR) {
+                            ErrorMessage error;
+                            error = (ErrorMessage) response;
+                            System.out.println("Chat could not be established. Error: " + error.reason()
+                                    + ",\r\n You will be logged out");
+                            state = States.CONNECTEDTOSERVER;
                             break;
-                        default: // default because there will be different names
-                            request = new ChatReqMessage(
-                                    new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()), userChoice);
-                            sendData(request, codec, outToServer);
-                            receiveData(codec, inFromServer);
+                        }
 
-                            if (response.header().type() == MsgType.ERROR) {
-                                ErrorMessage error;
-                                error = (ErrorMessage) response;
-                                System.out.println("Chat could not be established. Error: " + error.reason()
-                                        + ",\r\n You will be logged out");
-                                state = States.CONNECTEDTOSERVER;
-                                break;
-                            }
+                        ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
+                        requested_udpPort = chatOk.getRequested_user_port();
+                        reqAddress = InetAddress.getByName(chatOk.getRequested_user_ipAddress());
 
-                            ChatReqOkMessage chatOk = (ChatReqOkMessage) response;
-                            requested_udpPort = chatOk.getRequested_user_port();
-                            reqAddress = chatOk.getRequested_user_ipAddress();
-
-                            state = States.CONNECTEDTOCLIENT;
-                            System.out.print("yay we can connect now UDP here");
-                            break;
+                        state = States.CONNECTEDTOCLIENT;
+                        System.out.print("yay we can connect now UDP here");
+                        break;
                     }
                 case States.CONNECTEDTOCLIENT:
                     UDPConnection(requested_udpPort, reqAddress);
@@ -253,7 +254,7 @@ public class ThreadedClient {
     private void UDPConnection(int port, InetAddress ipAddress) throws IOException {
 
         udpStates = UDPStates.ACK_RECEIVED;
-        
+
         try {
             clientUdpSocket = new DatagramSocket();
             System.out.println("ClientSocket established on port: " + clientUdpSocket.getLocalPort());
@@ -281,7 +282,7 @@ public class ThreadedClient {
                         message = inFromUser.readLine();
 
                         ChatMessage chat_message = new ChatMessage(
-                            new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
+                                new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
 
                         msgData = codec.encode(chat_message);
 
@@ -310,18 +311,18 @@ public class ThreadedClient {
                 try {
                     DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
                     clientUdpSocket.receive(receivePacket);
-                    
+
                     // if it is an ACK because it would just be a zero
                     if (receivePacket.getData()[0] == 0) {
                         udpStates = UDPStates.ACK_RECEIVED;
-                    } else if (udpStates != UDPStates.WAIT_FOR_ACK){
+                    } else if (udpStates != UDPStates.WAIT_FOR_ACK) {
                         udp_message = codec.decode(receiveData);
 
                         System.out.println(udp_message.toString());
                     }
                 } catch (SocketTimeoutException c) {
                     udpStates = UDPStates.WAIT_FOR_ACK;
-                } catch(IOException e) {
+                } catch (IOException e) {
                     e.getMessage();
                 }
             });
