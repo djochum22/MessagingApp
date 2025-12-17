@@ -193,7 +193,7 @@ public class ThreadedClient {
                         request = new ChatReqMessage(
                                 new MsgHeader(MsgType.CHAT_REQ, 1, 1, System.currentTimeMillis()), userChoice);
                         sendData(request, codec, outToServer);
-                        receiveData(codec, inFromServer);
+                        response = receiveData(codec, inFromServer);
 
                         if (response.header().type() == MsgType.ERROR) {
                             ErrorMessage error;
