@@ -99,7 +99,7 @@ public final class SimpleTextCodec {
         String reqAddress = null;
         int personal_port;
         int port;
-        String text;
+        String text = null;
         int errorCode;
         ArrayList<String> onlineUsers = new ArrayList<>();
 
@@ -187,7 +187,7 @@ public final class SimpleTextCodec {
                     msg = new ForwardChatRequestMessage(header, requested_user);
                     break;
                 case "CHAT_MSG":
-                    text = bodyFields[0];
+                    text = String.join(" ", bodyFields);
                     msg = new ChatMessage(header, text);
                     return(msg);
                 default:
