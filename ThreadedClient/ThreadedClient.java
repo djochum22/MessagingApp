@@ -277,7 +277,6 @@ public class ThreadedClient {
         udpStates = UDPStates.ACK_RECEIVED;
 
         try {
-            // TODO bind this to the assigned port we are given
             clientUdpSocket = new DatagramSocket(personal_port);
             System.out.println("ClientSocket established on port: " + clientUdpSocket.getLocalPort());
             clientUdpSocket.setSoTimeout(5000); // 5000 ms = 5 Sekunden
@@ -293,33 +292,45 @@ public class ThreadedClient {
 
         do {
             Thread message_send_thread = new Thread(() -> {
-                byte[] msgData;
-                // two different packets to save the last packet incase of packet loss
-                DatagramPacket sendPacket = null, lastPacket = null;
-
-                System.out.print("Message: ");
-                String message = null;
                 try {
-                    if (udpStates == UDPStates.ACK_RECEIVED) {
-                        message = inFromUser.readLine();
+                    do {
+                        byte[] msgData;
+                        DatagramPacket sendPacket = null, lastPacket = null;
 
-                        ChatMessage chat_message = new ChatMessage(
-                                new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
+                        System.out.print("Message: ");
+                        String message = null;
+                        try {
+                            switch(udpStates) {
+                            case UDPStates.ACK_RECEIVED:
+                                message = inFromUser.readLine();
 
-                        msgData = codec.encode(chat_message);
+                                ChatMessage chat_message = new ChatMessage(
+                                        new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
 
-                        sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);
+                                msgData = codec.encode(chat_message);
 
-                        clientUdpSocket.send(sendPacket);
-                        lastPacket = sendPacket;
+                                sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);
 
-                    } else if (udpStates == UDPStates.WAIT_FOR_ACK) {
-                        clientUdpSocket.send(lastPacket);
-                    } else if (udpStates == UDPStates.MESSAGE_RCV) {
-                        ChatMessageACK chat_message_ack = new ChatMessageACK(0);
-                        msgData = chat_message_ack.data();
-                        sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);
-                    }
+                                clientUdpSocket.send(sendPacket);
+                                lastPacket = sendPacket;
+                                udpStates = UDPStates.MESSAGE_SENT;
+                            case UDPStates.WAIT_FOR_ACK:
+                                clientUdpSocket.send(lastPacket);
+                                break;
+                            case UDPStates.MESSAGE_RCV:
+                                ChatMessageACK chat_message_ack = new ChatMessageACK(0);
+                                msgData = chat_message_ack.data();
+                                sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);
+                                break;
+                            case UDPStates.MESSAGE_SENT:
+                                while (udpStates == UDPStates.MESSAGE_SENT) {}
+                                break;
+                            }
+
+                        } catch (IOException e) {
+                            e.getMessage();
+                        }
+                    } while(!(inFromUser.readLine().equals("exit")) && state == States.CONNECTEDTOCLIENT);
                 } catch (IOException e) {
                     e.getMessage();
                 }
@@ -327,28 +338,34 @@ public class ThreadedClient {
             message_send_thread.start();
 
             Thread message_receive_thread = new Thread(() -> {
-                byte[] receiveData = new byte[1024];
-                Message udp_message;
+                    do {
+                        byte[] receiveData = new byte[1024];
+                        Message udp_message;
 
-                try {
-                    DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-                    clientUdpSocket.receive(receivePacket);
+                        try {
+                            DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+                            clientUdpSocket.receive(receivePacket);
 
-                    // if it is an ACK because it would just be a zero
-                    if (receivePacket.getData()[0] == 0) {
-                        udpStates = UDPStates.ACK_RECEIVED;
-                    } else if (udpStates != UDPStates.WAIT_FOR_ACK) {
-                        udp_message = codec.decode(receiveData);
+                            // if it is an ACK because it would just be a zero
+                            if (receivePacket.getData()[0] == 0) {
+                                udpStates = UDPStates.ACK_RECEIVED;
+                                System.out.println("ACK RECEIVED!");
+                            } else if (udpStates != UDPStates.WAIT_FOR_ACK) {
+                                udp_message = codec.decode(receiveData);
 
-                        System.out.println(udp_message.toString());
-                    }
-                } catch (SocketTimeoutException c) {
-                    udpStates = UDPStates.WAIT_FOR_ACK;
-                } catch (IOException e) {
-                    e.getMessage();
-                }
+                                System.out.println(udp_message.toString());
+                            }
+                        } catch (SocketTimeoutException c) {
+                            udpStates = UDPStates.WAIT_FOR_ACK;
+                        } catch (IOException e) {
+                            e.getMessage();
+                        }
+                    } while(state == States.CONNECTEDTOCLIENT);
+                
             });
             message_receive_thread.start();
         } while (!(inFromUser.readLine().equals("exit")) && state == States.CONNECTEDTOCLIENT);
+
+        state = States.CONNECTEDTOSERVER;
     }
 }
