@@ -278,7 +278,7 @@ public class ThreadedClient {
 
         try {
             // TODO bind this to the assigned port we are given
-            clientUdpSocket = new DatagramSocket();
+            clientUdpSocket = new DatagramSocket(personal_port);
             System.out.println("ClientSocket established on port: " + clientUdpSocket.getLocalPort());
             clientUdpSocket.setSoTimeout(5000); // 5000 ms = 5 Sekunden
             System.out.println("SocketTimeout set to 5 seconds");

@@ -189,7 +189,7 @@ public final class SimpleTextCodec {
                 case "CHAT_MSG":
                     text = bodyFields[0];
                     msg = new ChatMessage(header, text);
-                    break;
+                    return(msg);
                 default:
                     throw new Exception("Unsupported Body-Field");
             }
