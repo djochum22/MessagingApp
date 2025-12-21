@@ -1,5 +1,8 @@
-
 package ThreadedClient;
+
+
+    
+
 
 import java.io.BufferedReader;
 import java.io.DataInputStream;
@@ -31,7 +34,7 @@ import messages.response.ChatReqOkMessage;
 import messages.response.ErrorMessage;
 import messages.response.SendPortMessage;
 
-public class ThreadedClient {
+public class TestClient2 {
     private Socket clientSocket;
     private DatagramSocket clientUdpSocket;
     private States state = null;
@@ -48,8 +51,8 @@ public class ThreadedClient {
     private InetAddress reqAddress = null;
     private boolean udpRunning = false;
     private DatagramPacket lastPacket = null;
-
-    public ThreadedClient() {
+private boolean running = false;
+    public TestClient2() {
         codec = new SimpleTextCodec();
     }
 
@@ -58,13 +61,14 @@ public class ThreadedClient {
         client.run();
     }
 
-    public void run() throws IOException {
+
+ public void run() throws IOException {
 
         try {
             try {
                 clientSocket = new Socket("localhost", 6324);
                 System.out.println("Client connected end with \"END\"");
-                state = States.CONNECTEDTOSERVER;
+                running=true;
                 inFromUser = new BufferedReader(new InputStreamReader(System.in));
                 outToServer = new DataOutputStream(clientSocket.getOutputStream()); // // of byte-arrays
                 inFromServer = new DataInputStream(clientSocket.getInputStream());
@@ -76,9 +80,25 @@ public class ThreadedClient {
                 return;
             }
 
+            Thread listener = new Thread(()->{
+                while (running) {
+                    
+                response=receiveData(codec, inFromServer);
+             MsgType type = response.header().type();
+             switch (type) {
+                case OK:
+                    
+                    break;
+             
+                default:
+                    break;
+             }
+            }
+            });
+            listener.start();
+
             while (state != null) {
-                s: switch (state) {
-                    case States.CONNECTEDTOSERVER:
+         
                         outer: do {
 
                             do {
@@ -397,4 +417,3 @@ public class ThreadedClient {
 
         state = States.ONLINE;
     }
-}

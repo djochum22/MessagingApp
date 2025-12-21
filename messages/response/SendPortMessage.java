@@ -1,17 +1,21 @@
 package messages.response;
 
+import java.net.InetAddress;
+
 import messages.Message;
 import messages.MsgHeader;
 
 public class SendPortMessage implements Message {
     private final MsgHeader header;
     private final int port;
-    private final String username;
+    private final String publicKey;
+    private final InetAddress ipAddress;
 
-    public SendPortMessage(MsgHeader header, int port, String username) {
+    public SendPortMessage(MsgHeader header, int port, String publicKey, InetAddress ipAddress) {
         this.header = header;
         this.port = port;
-        this.username=username;
+        this.publicKey=publicKey;
+        this.ipAddress=ipAddress;
     }// maybe constant using generalized bye-message instead of constructing it
 
     @Override
@@ -25,13 +29,17 @@ public class SendPortMessage implements Message {
 
     
 
-    public String getUsername() {
-        return username;
+    public InetAddress getIpAddress() {
+        return ipAddress;
+    }
+
+    public String getPublicKey() {
+        return publicKey;
     }
 
     @Override
     public String toString() {
-        return String.format("SEND_PORT %s %d\r\n",username, port); 
+        return String.format("SEND_PORT %s %d\r\n",publicKey, port); 
     }
 
 }

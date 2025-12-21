@@ -1,5 +1,6 @@
 package codec;
 
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -97,7 +98,10 @@ public final class SimpleTextCodec {
         String requested_user = null;
         int requested_user_port;
         String reqAddress = null;
-        int personal_port;
+        int personal_port=0;
+        String publicKey=null;
+        InetAddress ipAddress=null;
+
         int port;
         String text = null;
         int errorCode;
@@ -141,7 +145,7 @@ public final class SimpleTextCodec {
                     requested_user_port = Integer.parseInt(bodyFields[0]);
                     reqAddress = bodyFields[1];
                     personal_port = Integer.parseInt(bodyFields[2]);
-                    msg = new ChatReqOkMessage(header, requested_user_port, reqAddress, personal_port);
+                    msg = new ChatReqOkMessage(header, requested_user);
                     break;
                 case "USERS_ONLINE":
 
@@ -172,7 +176,7 @@ public final class SimpleTextCodec {
                 case "SEND_PORT":
                     port = Integer.parseInt(bodyFields[0]);
                     username = bodyFields[1];
-                    msg = new SendPortMessage(header, port, username);
+                    msg = new SendPortMessage(header, port, publicKey, ipAddress);
                     break;
                 case "CHAT_REQ_DENIED":
                     requested_user = bodyFields[0];
@@ -189,7 +193,7 @@ public final class SimpleTextCodec {
                 case "CHAT_MSG":
                     text = String.join(" ", bodyFields);
                     msg = new ChatMessage(header, text);
-                    return(msg);
+                    return (msg);
                 default:
                     throw new Exception("Unsupported Body-Field");
             }

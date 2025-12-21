@@ -6,6 +6,9 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.HashMap;
+
 import codec.SimpleTextCodec;
 import messages.Message;
 import messages.MsgHeader;
@@ -15,7 +18,9 @@ import messages.request.LoginMessage;
 import messages.request.RegisterMessage;
 import messages.response.ChatReqOkMessage;
 import messages.response.ErrorMessage;
+import messages.response.ForwardChatRequestMessage;
 import messages.response.OkMessage;
+import messages.response.SendPortMessage;
 import messages.response.UsersOnlineMessage;
 import user.User;
 import user.UserManagement;
@@ -26,9 +31,10 @@ public class ThreadedServer {
 
      String encodedResponse;
      SimpleTextCodec codec = new SimpleTextCodec();
-     Message clientMessage, response;
+     Message clientMessage, response, request;
      boolean headerDone = false;
      private ServerSocket welcomeSocket;
+     HashMap<String, DataOutputStream> connectedClients = new HashMap<>();
 
      public ThreadedServer() {
           try {
@@ -58,7 +64,8 @@ public class ThreadedServer {
           DataInputStream inFromClient = null;
           DataOutputStream outToClient = null;
           User currUser = null;
-
+          String requested_user=null;
+          User reqUser=null;
           try {
                inFromClient = new DataInputStream(socket.getInputStream());
                outToClient = new DataOutputStream(socket.getOutputStream());
@@ -75,9 +82,8 @@ public class ThreadedServer {
 
                               RegisterMessage message = (RegisterMessage) clientMessage;
 
-                              int udpPort = (int) (Math.random() * 9000) + 1000;
                               currUser = new User(message.getEmail(), message.getUsername(),
-                                        message.getPassword(), socket.getInetAddress(), udpPort);
+                                        message.getPassword(), socket.getInetAddress(), socket, outToClient);
 
                               if (userManagement.getRegisteredUsers().contains(currUser)) {
                                    response = new ErrorMessage(
@@ -88,6 +94,7 @@ public class ThreadedServer {
 
                               }
                               userManagement.register(currUser);
+
                               response = new OkMessage(
                                         new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
                               sendData(response, codec, outToClient);
@@ -138,8 +145,8 @@ public class ThreadedServer {
 
                          case MsgType.CHAT_REQ:
                               ChatReqMessage chatReqMessage = (ChatReqMessage) clientMessage;
-                              String requested_user = chatReqMessage.getRequested_user();
-                              User reqUser = userManagement.findRegisteredUser(requested_user);
+                              requested_user = chatReqMessage.getRequested_user();
+                              reqUser = userManagement.findRegisteredUser(requested_user);
 
                               if (reqUser == null) {
                                    response = new ErrorMessage(
@@ -150,13 +157,30 @@ public class ThreadedServer {
 
                               }
 
-                              response = new ChatReqOkMessage(
-                                        new MsgHeader(MsgType.CHAT_REQ_OK, 1, 1, System.currentTimeMillis()),
-                                        reqUser.getUdpPort(), reqUser.getIp(), currUser.getUdpPort());
-                              sendData(response, codec, outToClient);
-                              System.out.println("Requested UDP Info sent.");
-                              break;
+                              response = new ForwardChatRequestMessage(
+                                        new MsgHeader(MsgType.FWD_CHAT_REQ, 1, 1, System.currentTimeMillis()),
+                                        currUser.getName());
+                              DataOutputStream outToRecipient = new DataOutputStream(
+                                        reqUser.getTcpSocket().getOutputStream());
+                              sendData(response, codec, outToRecipient);
+                              System.out.println("Message forwarded to " + reqUser.getName());
 
+                              // response = new ChatReqOkMessage(
+                              // new MsgHeader(MsgType.CHAT_REQ_OK, 1, 1, System.currentTimeMillis()),
+                              // reqUser.getUdpPort(), reqUser.getIp(), currUser.getUdpPort());
+                              // sendData(response, codec, outToClient);
+                              // System.out.println("Requested UDP Info sent.");
+                              break;
+                         case CHAT_REQ_OK:
+                              ChatReqOkMessage chatOk = (ChatReqOkMessage)clientMessage;
+                              requested_user = chatOk.getReqUserName();
+                              reqUser = userManagement.findRegisteredUser(requested_user);
+
+                              SendPortMessage sendPortMessage=new SendPortMessage(new MsgHeader(MsgType.FWD_CHAT_REQ, 1, 1, System.currentTimeMillis()), reqUser.getUdpPort(), "", reqUser.getIp());
+                              sendData(sendPortMessage, codec, outToClient);
+                              System.out.println("Requested Port forwarded to " + currUser.getName());
+
+                              break;
                          case MsgType.QUIT_REQ:
 
                               return;

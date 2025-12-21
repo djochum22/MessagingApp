@@ -40,7 +40,7 @@ quit_req = "QUITREQ" CRLF
 response = ok / chat_req_ok / users_online / send_port / logout_ok / chat_req_denied / error 
 
 ok = "OK" CRLF
-chat_req_ok ="CHAT_REQ_OK" SP requested_user_port CRLF
+chat_req_ok ="CHAT_REQ_OK" SP requested_user CRLF
 fwd_chat_req = "FWD_CHAT_REQ" SP requesting_user CRLF;
 users_online = "USERS_ONLINE" SP online_user_list CRLF
 send_port = "SEND_PORT" SP username SP port CRLF
