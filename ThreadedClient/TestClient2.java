@@ -213,7 +213,16 @@ public class TestClient2 {
                         state = States.WAITING_FOR_RESPONSE;
 
                         break;
+                    case States.CHATTING:
 
+                        try {
+                            Thread.sleep(1000);
+                            if (!udpRunning) {
+                                state = States.LOGGEDIN;
+                            }
+                        } catch (InterruptedException e) {
+                        }
+                        break;
                     case States.WAITING_FOR_RESPONSE:
 
                         try {
@@ -287,47 +296,60 @@ public class TestClient2 {
 
             while (udpRunning) {
 
-                byte[] receiveData = new byte[1024];
-                Message udp_message;
+                if (state != States.CHATTING) {
+                    System.out.println("\nIncoming Message Switching to ChatMode");
+                    state = States.CHATTING;
 
-                try {
-                    DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-                    clientUdpSocket.receive(receivePacket);
-                    int length = receivePacket.getLength();
-                    byte[] data = Arrays.copyOf(receivePacket.getData(), length);
+                    byte[] receiveData = new byte[1024];
+                    Message udp_message;
 
-                    // if it is an ACK because it would just be a zero
-                    if (length == 1 && data[0] == 48) {
-                        udpStates = UDPStates.ACK_RECEIVED;
-                        System.out.println("ACK RECEIVED!");
-                        continue;
-                    }
-
-                    udp_message = codec.decode(data);
-
-                    System.out.println(udp_message.toString());
-                    udpStates = UDPStates.MESSAGE_RCV;
-
-                    ChatMessageACK chat_message_ack = new ChatMessageACK(0);
-                    byte[] msgData = chat_message_ack.data();
-                    DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, receivePacket.getAddress(),
-                            receivePacket.getPort());
-
-                    clientUdpSocket.send(sendPacket);
-                    System.out.println("ACK SENT");
-
-                } catch (SocketTimeoutException c) {
-                    if (udpStates == UDPStates.WAIT_FOR_ACK && lastPacket != null) {
+                    try {
+                        DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+                        clientUdpSocket.receive(receivePacket);
+                        int length = receivePacket.getLength();
+                        byte[] data = Arrays.copyOf(receivePacket.getData(), length);
+                        reqAddress = receivePacket.getAddress();
+                        requested_udpPort = receivePacket.getPort();
                         try {
-                            clientUdpSocket.send(lastPacket);
-
+                            UDPConnectionSend(requested_udpPort, reqAddress);
                         } catch (IOException e) {
-                            e.getMessage();
+                            e.printStackTrace();
                         }
+
+                        // if it is an ACK because it would just be a zero
+                        if (length == 1 && data[0] == 48) {
+                            udpStates = UDPStates.ACK_RECEIVED;
+                            System.out.println("ACK RECEIVED!");
+                            continue;
+                        }
+
+                        udp_message = codec.decode(data);
+
+                        System.out.println(udp_message.toString());
+                        udpStates = UDPStates.MESSAGE_RCV;
+
+                        ChatMessageACK chat_message_ack = new ChatMessageACK(0);
+                        byte[] msgData = chat_message_ack.data();
+                        DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length,
+                                receivePacket.getAddress(),
+                                receivePacket.getPort());
+
+                        clientUdpSocket.send(sendPacket);
+                        System.out.println("ACK SENT");
+
+                    } catch (SocketTimeoutException c) {
+                        if (udpStates == UDPStates.WAIT_FOR_ACK && lastPacket != null) {
+                            try {
+                                clientUdpSocket.send(lastPacket);
+
+                            } catch (IOException e) {
+                                e.getMessage();
+                            }
+                        }
+                        udpStates = UDPStates.LOST_ACK;
+                    } catch (IOException e) {
+                        e.getMessage();
                     }
-                    udpStates = UDPStates.LOST_ACK;
-                } catch (IOException e) {
-                    e.getMessage();
                 }
             }
 
