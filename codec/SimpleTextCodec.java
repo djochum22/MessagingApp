@@ -11,6 +11,7 @@ import messages.MsgType;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
+import messages.request.PortKeyMessage;
 import messages.request.QuitReqMessage;
 import messages.request.RegisterMessage;
 import messages.request.WhoOnlineMessage;
@@ -18,7 +19,8 @@ import messages.response.ChatReqDeniedMessage;
 import messages.response.ChatReqOkMessage;
 import messages.response.ErrorMessage;
 import messages.response.ForwardChatRequestMessage;
-import messages.response.OkMessage;
+import messages.response.LoginOkMessage;
+import messages.response.RegistrationOkMessage;
 import messages.response.SendPortMessage;
 import messages.response.UsersOnlineMessage;
 import messages.UDPmessages.ChatMessage;
@@ -93,15 +95,15 @@ public final class SimpleTextCodec {
 
         Message msg = null;
         String email;
-        String username;
+        String username=null;
         String password;
         String requested_user = null;
         int requested_user_port;
         String reqAddress = null;
-        int personal_port=0;
-        String publicKey=null;
-        InetAddress ipAddress=null;
-
+        int personal_port = 0;
+        String publicKey = null;
+        InetAddress ipAddress = null;
+   
         int port;
         String text = null;
         int errorCode;
@@ -114,6 +116,13 @@ public final class SimpleTextCodec {
             bodyFields = Arrays.copyOfRange(bodyFields, 1, bodyFields.length); // remove first word
 
             switch (command) {
+
+                case "SEND_PORT_KEY":
+                    publicKey=bodyFields[0];
+                    personal_port= Integer.parseInt(bodyFields[1]);
+                    msg= new PortKeyMessage(header, publicKey, personal_port);
+                    break;
+                    
                 case "REGISTER":
                     email = bodyFields[0];
                     username = bodyFields[1];
@@ -138,15 +147,21 @@ public final class SimpleTextCodec {
                 case "QUIT_REQ":
                     msg = new QuitReqMessage(header);
                     break;
-                case "OK":
-                    msg = new OkMessage(header);
+                case "LOGIN_OK":
+                    msg = new LoginOkMessage(header);
                     break;
-                case "CHAT_REQ_OK":
-                    requested_user_port = Integer.parseInt(bodyFields[0]);
-                    reqAddress = bodyFields[1];
-                    personal_port = Integer.parseInt(bodyFields[2]);
-                    msg = new ChatReqOkMessage(header, requested_user);
+                case "REG_OK":
+                    msg = new RegistrationOkMessage(header);
                     break;
+                case "LOGOUT_OK":
+                    msg = new RegistrationOkMessage(header);
+                    break;
+                // case "CHAT_REQ_OK":
+                //     requested_user_port = Integer.parseInt(bodyFields[0]);
+                //     reqAddress = bodyFields[1];
+                //     personal_port = Integer.parseInt(bodyFields[2]);
+                //     msg = new ChatReqOkMessage(header, requested_user);
+                //     break;
                 case "USERS_ONLINE":
 
                     // according to chatty the toString() of an Arraylist returns [element1,
@@ -175,21 +190,19 @@ public final class SimpleTextCodec {
                     break;
                 case "SEND_PORT":
                     port = Integer.parseInt(bodyFields[0]);
-                    username = bodyFields[1];
+                    publicKey = bodyFields[1];
+                    ipAddress=InetAddress.getByName(bodyFields[2]);
                     msg = new SendPortMessage(header, port, publicKey, ipAddress);
                     break;
-                case "CHAT_REQ_DENIED":
-                    requested_user = bodyFields[0];
-                    msg = new ChatReqDeniedMessage(header, requested_user);
-                    break;
+            
                 case "ERROR":
                     errorCode = Integer.parseInt(bodyFields[0]);
                     msg = new ErrorMessage(header, errorCode);
                     break;
-                case "FWD_CHAT_REQ":
-                    requested_user = bodyFields[0];
-                    msg = new ForwardChatRequestMessage(header, requested_user);
-                    break;
+                // case "FWD_CHAT_REQ":
+                //     requested_user = bodyFields[0];
+                //     msg = new ForwardChatRequestMessage(header, username);
+                //     break;
                 case "CHAT_MSG":
                     text = String.join(" ", bodyFields);
                     msg = new ChatMessage(header, text);

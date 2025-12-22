@@ -39,7 +39,7 @@ public class SendPortMessage implements Message {
 
     @Override
     public String toString() {
-        return String.format("SEND_PORT %s %d\r\n",publicKey, port); 
+        return String.format("SEND_PORT %s %d %s\r\n",publicKey, port,ipAddress); 
     }
 
 }

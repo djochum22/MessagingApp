@@ -3,10 +3,10 @@ package messages.response;
 import messages.Message;
 import messages.MsgHeader;
 
-public class OkMessage implements Message {
+public class RegistrationOkMessage implements Message {
     private final MsgHeader header;
 
-    public OkMessage(MsgHeader header) {
+    public RegistrationOkMessage(MsgHeader header) {
         this.header=header;
     
     }
@@ -19,7 +19,7 @@ public class OkMessage implements Message {
 
     @Override
     public String toString() {
-        return String.format("OK\r\n"); 
+        return String.format("REG_OK\r\n"); 
     }
     
 

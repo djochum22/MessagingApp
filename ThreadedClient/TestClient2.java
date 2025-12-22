@@ -1,9 +1,5 @@
 package ThreadedClient;
 
-
-    
-
-
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -14,7 +10,6 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
-import java.rmi.server.ServerNotActiveException;
 import java.util.Arrays;
 
 import codec.SimpleTextCodec;
@@ -27,17 +22,14 @@ import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
 import messages.request.PortKeyMessage;
-import messages.request.QuitReqMessage;
 import messages.request.RegisterMessage;
 import messages.request.WhoOnlineMessage;
-import messages.response.ChatReqOkMessage;
-import messages.response.ErrorMessage;
 import messages.response.SendPortMessage;
 
 public class TestClient2 {
     private Socket clientSocket;
     private DatagramSocket clientUdpSocket;
-    private States state = null;
+    private volatile States state = null;
     private BufferedReader inFromUser;
     private DataOutputStream outToServer;
     private DataInputStream inFromServer;
@@ -51,24 +43,25 @@ public class TestClient2 {
     private InetAddress reqAddress = null;
     private boolean udpRunning = false;
     private DatagramPacket lastPacket = null;
-private boolean running = false;
+    private boolean running = false;
+
     public TestClient2() {
         codec = new SimpleTextCodec();
     }
 
     public static void main(String[] args) throws IOException {
-        ThreadedClient client = new ThreadedClient();
+        TestClient2 client = new TestClient2();
         client.run();
     }
 
-
- public void run() throws IOException {
+    public void run() throws IOException {
 
         try {
             try {
                 clientSocket = new Socket("localhost", 6324);
                 System.out.println("Client connected end with \"END\"");
-                running=true;
+                running = true;
+                state=States.NONE;
                 inFromUser = new BufferedReader(new InputStreamReader(System.in));
                 outToServer = new DataOutputStream(clientSocket.getOutputStream()); // // of byte-arrays
                 inFromServer = new DataInputStream(clientSocket.getInputStream());
@@ -80,118 +73,97 @@ private boolean running = false;
                 return;
             }
 
-            Thread listener = new Thread(()->{
+            Thread listener = new Thread(() -> {
                 while (running) {
-                    
-                response=receiveData(codec, inFromServer);
-             MsgType type = response.header().type();
-             switch (type) {
-                case OK:
-                    
-                    break;
-             
-                default:
-                    break;
-             }
-            }
+
+                    response = receiveData(codec, inFromServer);
+                    MsgType type = response.header().type();
+                    switch (type) {
+                        case LOGIN_OK:
+                            state = States.LOGGEDIN;
+                            System.out.println("Login Successful");
+
+                            break;
+                        case REGISTRATION_OK:
+                            state = States.WAITFORLOGIN;
+                            System.out.println("Registration ok. Please login.");
+                            break;
+                        case USERS_ONLINE:
+                            state = States.USERS_REQUESTED;
+                            System.out.println(response.toString());
+                            break;
+                        case SEND_PORT:
+
+                        System.out.println("Requested UserPort and IP-Adress received starting UDP-Sending-Mode...");
+                        SendPortMessage port= (SendPortMessage)response;
+                            try {
+                                UDPConnectionSend(port.getPort(),port.getIpAddress());
+                            } catch (IOException e) {
+                                // TODO Auto-generated catch block
+                                e.printStackTrace();
+                            }
+                            state=States.CHATTING;
+
+                            break;
+                      
+
+                        case LOGOUT_OK:
+                            break;
+                        case ERROR:
+                            
+                            //switch error type
+                        default:
+                            break;
+                    }
+                }
             });
             listener.start();
 
-            while (state != null) {
-         
-                        outer: do {
+            while (running) {
 
-                            do {
-                                System.out.println("What do you want to do? register | login | quit");
-                                userAction = inFromUser.readLine();
+               switch (state) {
+                    case States.NONE:
 
-                            } while (!(userAction.toLowerCase().equals("register")
-                                    || userAction.toLowerCase().equals("login")
-                                    || userAction.toLowerCase().equals("quit")));
+                        System.out.println("Hello please register");
 
-                            switch (userAction) {
-                                case "quit":
-                                    request = new QuitReqMessage(
-                                            new MsgHeader(MsgType.QUIT_REQ, 1, 1, System.currentTimeMillis()));
-                                    sendData(request, codec, outToServer);
-                                    break;
+                        System.out.println("Please enter your email");
+                        email = inFromUser.readLine();
+                        System.out.println("Please choose your name");
+                        name = inFromUser.readLine();
+                        System.out.println("Please choose your password");
+                        password = inFromUser.readLine();
 
-                                case "register":
-                                    // register (Server has to add data to registeredUserList)
-                                    do {
-                                        System.out.println("Please enter your email");
-                                        email = inFromUser.readLine();
-                                        System.out.println("Please choose your name");
-                                        name = inFromUser.readLine();
-                                        System.out.println("Please choose your password");
-                                        password = inFromUser.readLine();
-
-                                        request = new RegisterMessage(
-                                                new MsgHeader(MsgType.REGISTER, 1, 1, System.currentTimeMillis()),
-                                                email, name, password);
-                                        sendData(request, codec, outToServer);
-                                        response = receiveData(codec, inFromServer);
-
-                                        if (response.header().type() == MsgType.ERROR) {
-                                            ErrorMessage error;
-                                            error = (ErrorMessage) response;
-                                            System.out.println(
-                                                    "Registration failed.Error: " + error.reason()
-                                                            + "\n Please try again or type");
-                                            // we should define errorcodes to simplify this
-                                            continue outer;
-                                        }
-
-                                    } while (response.header().type() == MsgType.ERROR);
-                                    System.out.println("Registration successful");
-
-                                    continue outer;
-
-                                case "login":
-                                    do {
-
-                                        System.out.println("Please enter your login-email");
-                                        email = inFromUser.readLine();
-                                        System.out.println("Please enter your password");
-                                        password = inFromUser.readLine();
-
-                                        request = new LoginMessage(
-                                                new MsgHeader(MsgType.LOGIN, 1, 1, System.currentTimeMillis()),
-                                                email,
-                                                password);
-                                        sendData(request, codec, outToServer);
-                                        response = receiveData(codec, inFromServer);
-
-                                        if (response.header().type() == MsgType.ERROR) {
-                                            ErrorMessage error;
-                                            error = (ErrorMessage) response;
-                                            System.out.println(
-                                                    "Login failed. Error: " + error.reason() + "\n Please try again");
-                                            continue outer;
-                                        }
-
-                                    } while (response.header().type() == MsgType.ERROR);
-                                    System.out.println("Login successful");
-                                    personal_port = establishUDPSocket();
-                                    request = new PortKeyMessage(
-                                            new MsgHeader(MsgType.PORT_KEY, 1, 1, System.currentTimeMillis()), "",
-                                            clientUdpSocket.getPort());
-                                    UDPConnectionListener();
-
-                                    state = States.ONLINE;
-
-                                    break s;
-                                default:
-                                    break;
-                            }
-                        } while (!(userAction.toLowerCase().equals("quit")));
-
-                        System.out.println("Bye-Message sent:\n");
-                        clientSocket.close();
-                        state = null;
+                        request = new RegisterMessage(
+                                new MsgHeader(MsgType.REGISTER, 1, 1, System.currentTimeMillis()),
+                                email, name, password);
+                        sendData(request, codec, outToServer);
+                         state=States.WAITING_FOR_RESPONSE;
                         break;
-                    case States.ONLINE:
-                        
+
+                    case States.WAITFORLOGIN:
+
+                        System.out.println("Please enter your login-email");
+                        email = inFromUser.readLine();
+                        System.out.println("Please enter your password");
+                        password = inFromUser.readLine();
+
+                        request = new LoginMessage(
+                                new MsgHeader(MsgType.LOGIN, 1, 1, System.currentTimeMillis()),
+                                email,
+                                password);
+                        sendData(request, codec, outToServer);
+                         state=States.WAITING_FOR_RESPONSE;
+                     
+                        break;
+
+                    case LOGGEDIN:
+
+                        personal_port = establishUDPSocket();
+                        UDPConnectionListener();
+                        System.out.println("UDP Port established. Send PortNo and Public Key to Server");
+                        request = new PortKeyMessage(
+                                new MsgHeader(MsgType.PORT_KEY, 1, 1, System.currentTimeMillis()), "",
+                                clientUdpSocket.getPort());
 
                         request = new WhoOnlineMessage(
                                 new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
@@ -199,72 +171,57 @@ private boolean running = false;
 
                         sendData(request, codec, outToServer);
 
-                        if (response.header().type() == MsgType.ERROR) {
-                            ErrorMessage error;
-                            error = (ErrorMessage) response;
-                            System.out
-                                    .println("No online users. Error: " + error.reason()
-                                            + ",\r\n You will be logged out");
-                            state = States.CONNECTEDTOSERVER;
-                            break;
-                        }
+                        System.out.println("Requesting Online-Users from Server...");
+                         state=States.WAITING_FOR_RESPONSE;
 
-                        do {
-                            System.out.println("Who do want to chat with? Please type name or 'logout' or 'refresh'");
-                            System.out.println(response.toString());
 
-                            userChoice = inFromUser.readLine();
-
-                            if (userChoice.equals("logout")) {
-
-                                request = new LogoutMessage(
-                                        new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
-
-                                sendData(request, codec, outToServer);
-                                System.out.println("Bye-Message sent:\n" + sendData);
-                                clientSocket.close();
-                                state = null;
-                                return;
-
-                            } else if (userChoice.equals("refresh")) {
-                                request = new WhoOnlineMessage(
-                                        new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
-                                sendData = codec.encode(request);
-
-                                sendData(request, codec, outToServer);
-                                // response = receiveData(codec, inFromServer);
-
-                                if (response.header().type() == MsgType.ERROR) {
-                                    ErrorMessage error;
-                                    error = (ErrorMessage) response;
-                                    System.out
-                                            .println("No online users. Error: " + error.reason()
-                                                    + ",\r\n You will be logged out");
-                                    state = States.CONNECTEDTOSERVER;
-                                    break;
-                                }
-                            }
-                        } while (userChoice.equals("refresh"));
-
-                        request = new ChatReqMessage(
-                                new MsgHeader(MsgType.CHAT_REQ, 1, 1, System.currentTimeMillis()), userChoice);
-                        sendData(request, codec, outToServer);
-                        // response = receiveData(codec, inFromServer);
-
-                        // TODO Logic to make sure forwarded msg is received
-
-                        if (response.header().type() == MsgType.ERROR) {
-                            ErrorMessage error;
-                            error = (ErrorMessage) response;
-                            System.out.println("Chat could not be established. Error: " + error.reason()
-                                    + ",\r\n You will be logged out");
-                            state = States.CONNECTEDTOSERVER;
-                            break;
-                        }
-
+                        // System.out.println("Bye-Message sent:\n");
+                        // clientSocket.close();
+                        // state = null;
                         break;
-                    case States.CONNECTEDTOCLIENT:
-                        UDPConnectionSend(requested_udpPort, reqAddress, personal_port);
+
+
+
+                    case USERS_REQUESTED:
+
+                        System.out.println("Who do want to chat with? Please type name or 'logout' or 'refresh'");
+                        userChoice = inFromUser.readLine();
+
+                        if (userChoice.equals("logout")) {
+
+                            request = new LogoutMessage(
+                                    new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
+
+                            sendData(request, codec, outToServer);
+                            System.out.println("Bye-Message sent:\n" + sendData);
+                            clientSocket.close();
+                            state = null;
+                            return;
+
+                        } else if (userChoice.equals("refresh")) {
+                            request = new WhoOnlineMessage(
+                                    new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
+                            sendData = codec.encode(request);
+
+                            sendData(request, codec, outToServer);
+                             state=States.WAITING_FOR_RESPONSE;
+                             break;
+                            // response = receiveData(codec, inFromServer);
+
+                        } else {
+                            request = new ChatReqMessage(
+                                    new MsgHeader(MsgType.CHAT_REQ, 1, 1, System.currentTimeMillis()), userChoice);
+                            sendData(request, codec, outToServer);
+                            System.out.println("ChatRequest sent to Server.");
+                            state=States.WAITING_FOR_RESPONSE;
+                        }
+                        break;
+
+                         case States.WAITING_FOR_RESPONSE:
+        
+        try { Thread.sleep(100); } catch (InterruptedException e) {}
+        break;
+                   
                 }
             }
 
@@ -310,7 +267,7 @@ private boolean running = false;
         udpRunning = true;
         try {
             clientUdpSocket = new DatagramSocket();
-            System.out.println("ClientSocket established on port: " + clientUdpSocket.getLocalPort());
+            System.out.println("UDP-ClientSocket established on port: " + clientUdpSocket.getLocalPort());
             clientUdpSocket.setSoTimeout(5000); // 5000 ms = 5 Sekunden
             System.out.println("SocketTimeout set to 5 seconds");
             return clientSocket.getLocalPort();
@@ -378,7 +335,7 @@ private boolean running = false;
         message_receive_thread.start();
     }
 
-    private void UDPConnectionSend(int users_port, InetAddress ipAddress, int personal_port) throws IOException {
+    private void UDPConnectionSend(int users_port, InetAddress ipAddress) throws IOException {
 
         udpStates = UDPStates.ACK_RECEIVED;
 
@@ -388,7 +345,7 @@ private boolean running = false;
             byte[] msgData;
 
             try {
-                while (udpRunning && state == States.CONNECTEDTOCLIENT) {
+            while (udpRunning ) {
                     System.out.print("Message: ");
 
                     message = inFromUser.readLine();
@@ -415,5 +372,5 @@ private boolean running = false;
 
         message_send_thread.start();
 
-        state = States.ONLINE;
     }
+}
