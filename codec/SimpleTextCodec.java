@@ -189,9 +189,10 @@ public final class SimpleTextCodec {
                     msg = new UsersOnlineMessage(header, onlineUsers);
                     break;
                 case "SEND_PORT":
-                    port = Integer.parseInt(bodyFields[0]);
-                    publicKey = bodyFields[1];
-                    ipAddress=InetAddress.getByName(bodyFields[2]);
+                    
+                    publicKey = bodyFields[0];
+                    port = Integer.parseInt(bodyFields[1]);
+                    ipAddress=InetAddress.getByName(bodyFields[2].substring(1));
                     msg = new SendPortMessage(header, port, publicKey, ipAddress);
                     break;
             

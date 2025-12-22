@@ -61,7 +61,7 @@ public class TestClient2 {
                 clientSocket = new Socket("localhost", 6324);
                 System.out.println("Client connected end with \"END\"");
                 running = true;
-                state=States.NONE;
+                state = States.NONE;
                 inFromUser = new BufferedReader(new InputStreamReader(System.in));
                 outToServer = new DataOutputStream(clientSocket.getOutputStream()); // // of byte-arrays
                 inFromServer = new DataInputStream(clientSocket.getInputStream());
@@ -94,24 +94,24 @@ public class TestClient2 {
                             break;
                         case SEND_PORT:
 
-                        System.out.println("Requested UserPort and IP-Adress received starting UDP-Sending-Mode...");
-                        SendPortMessage port= (SendPortMessage)response;
+                            System.out
+                                    .println("Requested UserPort and IP-Adress received starting UDP-Sending-Mode...");
+                            SendPortMessage port = (SendPortMessage) response;
                             try {
-                                UDPConnectionSend(port.getPort(),port.getIpAddress());
+                                UDPConnectionSend(port.getPort(), port.getIpAddress());
                             } catch (IOException e) {
                                 // TODO Auto-generated catch block
                                 e.printStackTrace();
                             }
-                            state=States.CHATTING;
+                            state = States.CHATTING;
 
                             break;
-                      
 
                         case LOGOUT_OK:
                             break;
                         case ERROR:
-                            
-                            //switch error type
+
+                            // switch error type
                         default:
                             break;
                     }
@@ -121,7 +121,7 @@ public class TestClient2 {
 
             while (running) {
 
-               switch (state) {
+                switch (state) {
                     case States.NONE:
 
                         System.out.println("Hello please register");
@@ -137,7 +137,7 @@ public class TestClient2 {
                                 new MsgHeader(MsgType.REGISTER, 1, 1, System.currentTimeMillis()),
                                 email, name, password);
                         sendData(request, codec, outToServer);
-                         state=States.WAITING_FOR_RESPONSE;
+                        state = States.WAITING_FOR_RESPONSE;
                         break;
 
                     case States.WAITFORLOGIN:
@@ -152,18 +152,18 @@ public class TestClient2 {
                                 email,
                                 password);
                         sendData(request, codec, outToServer);
-                         state=States.WAITING_FOR_RESPONSE;
-                     
+                        state = States.WAITING_FOR_RESPONSE;
+
                         break;
 
                     case LOGGEDIN:
 
                         personal_port = establishUDPSocket();
                         UDPConnectionListener();
-                        System.out.println("UDP Port established. Send PortNo and Public Key to Server");
+                        System.out.println("UDP Port established. Send PortNo and Public Key to Server..");
                         request = new PortKeyMessage(
                                 new MsgHeader(MsgType.PORT_KEY, 1, 1, System.currentTimeMillis()), "",
-                                clientUdpSocket.getPort());
+                                clientUdpSocket.getLocalPort());
 
                         request = new WhoOnlineMessage(
                                 new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
@@ -172,15 +172,12 @@ public class TestClient2 {
                         sendData(request, codec, outToServer);
 
                         System.out.println("Requesting Online-Users from Server...");
-                         state=States.WAITING_FOR_RESPONSE;
-
+                        state = States.WAITING_FOR_RESPONSE;
 
                         // System.out.println("Bye-Message sent:\n");
                         // clientSocket.close();
                         // state = null;
                         break;
-
-
 
                     case USERS_REQUESTED:
 
@@ -204,24 +201,27 @@ public class TestClient2 {
                             sendData = codec.encode(request);
 
                             sendData(request, codec, outToServer);
-                             state=States.WAITING_FOR_RESPONSE;
-                             break;
+                            state = States.WAITING_FOR_RESPONSE;
+                            break;
                             // response = receiveData(codec, inFromServer);
 
-                        } else {
-                            request = new ChatReqMessage(
-                                    new MsgHeader(MsgType.CHAT_REQ, 1, 1, System.currentTimeMillis()), userChoice);
-                            sendData(request, codec, outToServer);
-                            System.out.println("ChatRequest sent to Server.");
-                            state=States.WAITING_FOR_RESPONSE;
+                        }
+                        request = new ChatReqMessage(
+                                new MsgHeader(MsgType.CHAT_REQ, 1, 1, System.currentTimeMillis()), userChoice);
+                        sendData(request, codec, outToServer);
+                        System.out.println("ChatRequest sent to Server.");
+                        state = States.WAITING_FOR_RESPONSE;
+
+                        break;
+
+                    case States.WAITING_FOR_RESPONSE:
+
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
                         }
                         break;
 
-                         case States.WAITING_FOR_RESPONSE:
-        
-        try { Thread.sleep(100); } catch (InterruptedException e) {}
-        break;
-                   
                 }
             }
 
@@ -345,7 +345,7 @@ public class TestClient2 {
             byte[] msgData;
 
             try {
-            while (udpRunning ) {
+                while (udpRunning) {
                     System.out.print("Message: ");
 
                     message = inFromUser.readLine();

@@ -162,10 +162,10 @@ public class ThreadedServer {
                                    break;
 
                               }
-                              SendPortMessage sendPortMessage = new SendPortMessage(
-                                        new MsgHeader(MsgType.FWD_CHAT_REQ, 1, 1, System.currentTimeMillis()),
+                              response = new SendPortMessage(
+                                        new MsgHeader(MsgType.SEND_PORT, 1, 1, System.currentTimeMillis()),
                                         reqUser.getUdpPort(), "", reqUser.getIp());
-                              sendData(sendPortMessage, codec, outToClient);
+                              sendData(response, codec, outToClient);
                               System.out.println("Requested Port forwarded to " + currUser.getName());
 
                               // response = new ForwardChatRequestMessage(
