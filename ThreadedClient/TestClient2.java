@@ -9,6 +9,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.Arrays;
 
@@ -24,11 +25,13 @@ import messages.request.LogoutMessage;
 import messages.request.PortKeyMessage;
 import messages.request.RegisterMessage;
 import messages.request.WhoOnlineMessage;
+import messages.response.ErrorMessage;
 import messages.response.SendPortMessage;
 
 public class TestClient2 {
     private Socket clientSocket;
-    private DatagramSocket clientUdpSocket;
+    private UDPHandler udpHandler;
+
     private volatile States state = null;
     private BufferedReader inFromUser;
     private DataOutputStream outToServer;
@@ -38,7 +41,7 @@ public class TestClient2 {
     private SimpleTextCodec codec;
     private byte[] sendData = null;
     private int requested_udpPort;
-    private int personal_port;
+    private String requestedKey = null;
     private UDPStates udpStates = null;
     private InetAddress reqAddress = null;
     private boolean udpRunning = false;
@@ -61,10 +64,11 @@ public class TestClient2 {
                 clientSocket = new Socket("localhost", 6324);
                 System.out.println("Client connected end with \"END\"");
                 running = true;
-                state = States.NONE;
+                state = States.WAIT_FOR_REGISTRATION;
                 inFromUser = new BufferedReader(new InputStreamReader(System.in));
                 outToServer = new DataOutputStream(clientSocket.getOutputStream()); // // of byte-arrays
                 inFromServer = new DataInputStream(clientSocket.getInputStream());
+                udpHandler = new UDPHandler(inFromUser);
 
             } catch (Exception e) {
                 e.getMessage();
@@ -80,38 +84,90 @@ public class TestClient2 {
                     MsgType type = response.header().type();
                     switch (type) {
                         case LOGIN_OK:
+
                             state = States.LOGGEDIN;
                             System.out.println("Login Successful");
 
                             break;
                         case REGISTRATION_OK:
+
                             state = States.WAITFORLOGIN;
                             System.out.println("Registration ok. Please login.");
                             break;
                         case USERS_ONLINE:
+
                             state = States.USERS_REQUESTED;
                             System.out.println(response.toString());
                             break;
                         case SEND_PORT:
 
                             System.out
-                                    .println("Requested UserPort and IP-Adress received starting UDP-Sending-Mode...");
+                                    .println("Requested UserPort and IP-Adress received. Starting Chat...");
                             SendPortMessage port = (SendPortMessage) response;
-                            try {
-                                UDPConnectionSend(port.getPort(), port.getIpAddress());
-                            } catch (IOException e) {
-                                // TODO Auto-generated catch block
-                                e.printStackTrace();
-                            }
+
                             state = States.CHATTING;
 
                             break;
 
                         case LOGOUT_OK:
+
+                            try {
+                                System.out
+                                        .println("Closing UDP-Socket...");
+                                clientSocket.close();
+                                udpHandler.getClientUdpSocket().close();
+                                state = null;
+                            } catch (IOException e) {
+                                // TODO Auto-generated catch block
+                                e.printStackTrace();
+                            }
+
                             break;
+
+                        case CHAT_MSG:
+
+                            ChatMessage chatMessage = (ChatMessage) response;
+
+                            System.out.println("New ChatMessage: " + chatMessage.text());
+                            state = States.CHATTING;
+                            break;
+
                         case ERROR:
 
-                            // switch error type
+                            ErrorMessage error = (ErrorMessage) response;
+                            int errReason = error.reason();
+
+                            switch (errReason) {
+                                case 1:
+                                    System.out.println("Registration failed. User already in Database.");
+                                    state = States.USERS_REQUESTED;
+                                    break;
+                                case 2:
+                                    System.out.println("Registration failed. Unknown registration error.");
+                                    state = States.USERS_REQUESTED;
+                                    break;
+                                case 3:
+                                    System.out.println("Login failed. Username doesn't exist.");
+                                    state = States.USERS_REQUESTED;
+                                    break;
+                                case 4:
+                                    System.out.println("Login failed. Wrong password.");
+                                    state = States.USERS_REQUESTED;
+                                    break;
+                                case 5:
+                                    System.out.println("WhoOnline failed. No User online.");
+                                    state = States.USERS_REQUESTED;
+                                    break;
+                                case 6:
+                                    System.out.println("ChatReq failed. Username not found.");
+                                    state = States.USERS_REQUESTED;
+                                    break;
+                                default:
+                                    System.out.println("Unknown Error");
+                                    state = States.USERS_REQUESTED;
+                                    break;
+                            }
+
                         default:
                             break;
                     }
@@ -122,25 +178,33 @@ public class TestClient2 {
             while (running) {
 
                 switch (state) {
-                    case States.NONE:
+                    case States.WAIT_FOR_REGISTRATION:
 
                         System.out.println("Hello please register");
-
                         System.out.println("Please enter your email");
                         email = inFromUser.readLine();
                         System.out.println("Please choose your name");
                         name = inFromUser.readLine();
                         System.out.println("Please choose your password");
                         password = inFromUser.readLine();
-
                         request = new RegisterMessage(
                                 new MsgHeader(MsgType.REGISTER, 1, 1, System.currentTimeMillis()),
                                 email, name, password);
-                        sendData(request, codec, outToServer);
+
+                        try {
+                            sendData(request, codec, outToServer);
+
+                        } catch (Exception e) {
+                            System.err.println("Message could not be sent");
+                            e.printStackTrace();
+                            e.getMessage();
+                        }
+
                         state = States.WAITING_FOR_RESPONSE;
                         break;
 
                     case States.WAITFORLOGIN:
+                        System.out.println("Please login.");
 
                         System.out.println("Please enter your login-email");
                         email = inFromUser.readLine();
@@ -151,37 +215,49 @@ public class TestClient2 {
                                 new MsgHeader(MsgType.LOGIN, 1, 1, System.currentTimeMillis()),
                                 email,
                                 password);
-                        sendData(request, codec, outToServer);
+                        try {
+                            sendData(request, codec, outToServer);
+
+                        } catch (Exception e) {
+                            System.err.println("Message could not be sent");
+                            e.printStackTrace();
+                            e.getMessage();
+                        }
+
                         state = States.WAITING_FOR_RESPONSE;
 
                         break;
 
                     case LOGGEDIN:
 
-                        personal_port = establishUDPSocket();
-                        UDPConnectionListener();
-                        System.out.println("UDP Port established. Send PortNo and Public Key to Server..");
+                        udpHandler.startListener();
+
+                        System.out.println("UDP Port established. Sending PortNo and Public Key to Server..");
                         request = new PortKeyMessage(
                                 new MsgHeader(MsgType.PORT_KEY, 1, 1, System.currentTimeMillis()), "",
-                                clientUdpSocket.getLocalPort());
+                                udpHandler.getClientUdpSocket().getLocalPort());
 
                         request = new WhoOnlineMessage(
                                 new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
                         sendData = codec.encode(request);
 
-                        sendData(request, codec, outToServer);
+                        try {
+                            sendData(request, codec, outToServer);
+
+                        } catch (Exception e) {
+                            System.err.println("Message could not be sent");
+                            e.printStackTrace();
+                            e.getMessage();
+                        }
 
                         System.out.println("Requesting Online-Users from Server...");
                         state = States.WAITING_FOR_RESPONSE;
 
-                        // System.out.println("Bye-Message sent:\n");
-                        // clientSocket.close();
-                        // state = null;
                         break;
 
                     case USERS_REQUESTED:
 
-                        System.out.println("Who do want to chat with? Please type name or 'logout' or 'refresh'");
+                        System.out.println("Who do you want to chat with? Please type name or 'logout' or 'refresh'");
                         userChoice = inFromUser.readLine();
 
                         if (userChoice.equals("logout")) {
@@ -189,40 +265,63 @@ public class TestClient2 {
                             request = new LogoutMessage(
                                     new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
 
-                            sendData(request, codec, outToServer);
-                            System.out.println("Bye-Message sent:\n" + sendData);
-                            clientSocket.close();
-                            state = null;
-                            return;
+                            try {
+                                sendData(request, codec, outToServer);
+
+                            } catch (Exception e) {
+                                System.err.println("Message could not be sent");
+                                e.printStackTrace();
+                                e.getMessage();
+                            }
 
                         } else if (userChoice.equals("refresh")) {
                             request = new WhoOnlineMessage(
                                     new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
                             sendData = codec.encode(request);
 
-                            sendData(request, codec, outToServer);
+                            try {
+                                sendData(request, codec, outToServer);
+
+                            } catch (Exception e) {
+                                System.err.println("Message could not be sent");
+                                e.printStackTrace();
+                                e.getMessage();
+                            }
+
                             state = States.WAITING_FOR_RESPONSE;
                             break;
-                            // response = receiveData(codec, inFromServer);
 
                         }
                         request = new ChatReqMessage(
                                 new MsgHeader(MsgType.CHAT_REQ, 1, 1, System.currentTimeMillis()), userChoice);
-                        sendData(request, codec, outToServer);
+                        try {
+                            sendData(request, codec, outToServer);
+
+                        } catch (Exception e) {
+                            System.err.println("Message could not be sent");
+                            e.printStackTrace();
+                            e.getMessage();
+                        }
+
                         System.out.println("ChatRequest sent to Server.");
                         state = States.WAITING_FOR_RESPONSE;
 
                         break;
-                    case States.CHATTING:
+
+                    case CHATTING:
 
                         try {
-                            Thread.sleep(1000);
-                            if (!udpRunning) {
-                                state = States.LOGGEDIN;
+                            if (udpRunning) {
+                                udpHandler.send(requested_udpPort, reqAddress);
                             }
-                        } catch (InterruptedException e) {
+                        } catch (IOException e) {
+                            System.out.println("UDP-Message could not be sent.\nPort: " + requested_udpPort + "\nIP: "
+                                    + reqAddress);
+                            e.printStackTrace();
                         }
-                        break;
+
+                        state = States.WAITING_FOR_RESPONSE;
+
                     case States.WAITING_FOR_RESPONSE:
 
                         try {
@@ -235,8 +334,10 @@ public class TestClient2 {
             }
 
         } catch (Exception e) {
-            // TODO: handle exception
+            e.printStackTrace();
+            e.getMessage();
         }
+
     }
 
     private void sendData(Message msg, SimpleTextCodec codec, DataOutputStream outToServer) {
@@ -272,33 +373,36 @@ public class TestClient2 {
         return response;
     }
 
-    private int establishUDPSocket() throws IOException {
-        udpRunning = true;
-        try {
-            clientUdpSocket = new DatagramSocket();
-            System.out.println("UDP-ClientSocket established on port: " + clientUdpSocket.getLocalPort());
-            clientUdpSocket.setSoTimeout(5000); // 5000 ms = 5 Sekunden
-            System.out.println("SocketTimeout set to 5 seconds");
-            return clientSocket.getLocalPort();
+    private class UDPHandler {
 
-        } catch (Exception e) {
-            e.getMessage();
-            e.printStackTrace();
-            System.err.println("Initialization failed");
-            clientUdpSocket.close();
-            return 0;
+        private BufferedReader inFromUser;
+        private DatagramSocket clientUdpSocket;
+        private boolean udpRunning = false;
+
+        public UDPHandler(BufferedReader inFromUser) {
+            try {
+                this.clientUdpSocket = new DatagramSocket();
+            } catch (SocketException e) {
+                e.printStackTrace();
+            }
+            this.udpRunning = true;
+            this.inFromUser = inFromUser;
         }
-    }
 
-    private void UDPConnectionListener() throws IOException {
+        public DatagramSocket getClientUdpSocket() {
+            return clientUdpSocket;
 
-        Thread message_receive_thread = new Thread(() -> {
+        }
 
-            while (udpRunning) {
+        public boolean udpRunning() {
+            return udpRunning;
+        }
 
-                if (state != States.CHATTING) {
-                    System.out.println("\nIncoming Message Switching to ChatMode");
-                    state = States.CHATTING;
+        private void startListener() throws IOException {
+
+            Thread message_receive_thread = new Thread(() -> {
+
+                while (udpRunning) {
 
                     byte[] receiveData = new byte[1024];
                     Message udp_message;
@@ -310,11 +414,6 @@ public class TestClient2 {
                         byte[] data = Arrays.copyOf(receivePacket.getData(), length);
                         reqAddress = receivePacket.getAddress();
                         requested_udpPort = receivePacket.getPort();
-                        try {
-                            UDPConnectionSend(requested_udpPort, reqAddress);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
 
                         // if it is an ACK because it would just be a zero
                         if (length == 1 && data[0] == 48) {
@@ -351,48 +450,52 @@ public class TestClient2 {
                         e.getMessage();
                     }
                 }
-            }
 
-        });
-        message_receive_thread.start();
-    }
+            });
+            message_receive_thread.start();
+        }
 
-    private void UDPConnectionSend(int users_port, InetAddress ipAddress) throws IOException {
+        private void send(int users_port, InetAddress ipAddress) throws IOException {
 
-        udpStates = UDPStates.ACK_RECEIVED;
+            udpStates = UDPStates.ACK_RECEIVED;
+            // Thread message_receive_thread = new Thread(() -> {
+                String message = null;
 
-        Thread message_send_thread = new Thread(() -> {
-            String message = null;
+                System.out.println("Message: ");
 
-            byte[] msgData;
-
-            try {
-                while (udpRunning) {
-                    System.out.print("Message: ");
-
+                try {
                     message = inFromUser.readLine();
-                    if (message == null || message.equals("exit")) {
-                        udpRunning = false;
-                        break;
-                    }
-
-                    ChatMessage chat_message = new ChatMessage(
-                            new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
-
-                    msgData = codec.encode(chat_message);
-
-                    DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);
-                    lastPacket = sendPacket;
-                    udpStates = UDPStates.WAIT_FOR_ACK;
-                    clientUdpSocket.send(sendPacket);
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-            } catch (IOException e) {
-                e.getMessage();
-            }
 
-        });
+                ChatMessage chat_message = new ChatMessage(
+                        new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
 
-        message_send_thread.start();
+                byte[] msgData;
+
+                try {
+                    while (udpRunning) {
+
+                        msgData = codec.encode(chat_message);
+
+                        DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);
+                        lastPacket = sendPacket;
+                        udpStates = UDPStates.WAIT_FOR_ACK;
+                        clientUdpSocket.send(sendPacket);
+                        System.out.println("Message sent");
+
+                    }
+                } catch (IOException e) {
+                    e.getMessage();
+                }
+
+            };
+        // );
+        //     message_receive_thread.start();
+
+        }
 
     }
-}
+
+

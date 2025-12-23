@@ -17,6 +17,7 @@ import messages.request.LoginMessage;
 import messages.request.PortKeyMessage;
 import messages.request.RegisterMessage;
 import messages.response.ErrorMessage;
+import messages.response.ForwardChatRequestMessage;
 import messages.response.LoginOkMessage;
 import messages.response.LogoutOkMessage;
 import messages.response.RegistrationOkMessage;
@@ -168,32 +169,18 @@ public class ThreadedServer {
                               sendData(response, codec, outToClient);
                               System.out.println("Requested Port forwarded to " + currUser.getName());
 
-                              // response = new ForwardChatRequestMessage(
-                              // new MsgHeader(MsgType.FWD_CHAT_REQ, 1, 1, System.currentTimeMillis()),
-                              // currUser.getName());
-                              // DataOutputStream outToRecipient = new DataOutputStream(
-                              // reqUser.getTcpSocket().getOutputStream());
-                              // sendData(response, codec, outToRecipient);
-                              // System.out.println("Message forwarded to " + reqUser.getName());
+                              response = new ForwardChatRequestMessage(new MsgHeader(MsgType.FWD_CHAT_REQ, 1, 1, System.currentTimeMillis()),
+                              currUser.getName(),
+                              currUser.getIp(),
+                              currUser.getUdpPort(),
+                              currUser.getPublicKey());
 
-                              // response = new ChatReqOkMessage(
-                              // new MsgHeader(MsgType.CHAT_REQ_OK, 1, 1, System.currentTimeMillis()),
-                              // reqUser.getUdpPort(), reqUser.getIp(), currUser.getUdpPort());
-                              // sendData(response, codec, outToClient);
-                              // System.out.println("Requested UDP Info sent.");
+                              DataOutputStream outToRecipient = new DataOutputStream(
+                              reqUser.getTcpSocket().getOutputStream());
+                              sendData(response, codec, outToRecipient);
+                              System.out.println("Message forwarded to " + reqUser.getName());
                               break;
-                         case CHAT_REQ_OK:
-                              // ChatReqOkMessage chatOk = (ChatReqOkMessage)clientMessage;
-                              // requested_user = chatOk.getReqUserName();
-                              // reqUser = userManagement.findRegisteredUser(requested_user);
-
-                              // SendPortMessage sendPortMessage=new SendPortMessage(new
-                              // MsgHeader(MsgType.FWD_CHAT_REQ, 1, 1, System.currentTimeMillis()),
-                              // reqUser.getUdpPort(), "", reqUser.getIp());
-                              // sendData(sendPortMessage, codec, outToClient);
-                              // System.out.println("Requested Port forwarded to " + currUser.getName());
-
-                              break;
+                      
                          case MsgType.QUIT_REQ:
 
                               return;

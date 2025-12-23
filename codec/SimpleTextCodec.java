@@ -95,15 +95,17 @@ public final class SimpleTextCodec {
 
         Message msg = null;
         String email;
-        String username=null;
+        String username = null;
         String password;
         String requested_user = null;
-        int requested_user_port;
+        String requestingUser = null;
+
+        int requestingUserPort = 0;
         String reqAddress = null;
         int personal_port = 0;
         String publicKey = null;
         InetAddress ipAddress = null;
-   
+
         int port;
         String text = null;
         int errorCode;
@@ -118,11 +120,11 @@ public final class SimpleTextCodec {
             switch (command) {
 
                 case "SEND_PORT_KEY":
-                    publicKey=bodyFields[0];
-                    personal_port= Integer.parseInt(bodyFields[1]);
-                    msg= new PortKeyMessage(header, publicKey, personal_port);
+                    publicKey = bodyFields[0];
+                    personal_port = Integer.parseInt(bodyFields[1]);
+                    msg = new PortKeyMessage(header, publicKey, personal_port);
                     break;
-                    
+
                 case "REGISTER":
                     email = bodyFields[0];
                     username = bodyFields[1];
@@ -156,19 +158,16 @@ public final class SimpleTextCodec {
                 case "LOGOUT_OK":
                     msg = new RegistrationOkMessage(header);
                     break;
-                // case "CHAT_REQ_OK":
-                //     requested_user_port = Integer.parseInt(bodyFields[0]);
-                //     reqAddress = bodyFields[1];
-                //     personal_port = Integer.parseInt(bodyFields[2]);
-                //     msg = new ChatReqOkMessage(header, requested_user);
-                //     break;
+                case "FWD_CHAT_REQ":
+                    requestingUser = bodyFields[0];
+                    ipAddress = InetAddress.getByName(bodyFields[1].substring(1));
+                    requestingUserPort = Integer.parseInt(bodyFields[2]);
+                    publicKey = bodyFields[3];
+                    msg = new ForwardChatRequestMessage(header, requestingUser, ipAddress, requestingUserPort,
+                            publicKey);
+                    break;
                 case "USERS_ONLINE":
 
-                    // according to chatty the toString() of an Arraylist returns [element1,
-                    // element2]
-                    // therefor the following method should work
-
-                    // String raw = bodyFields[0];
                     // raw = raw.trim();
 
                     // if (raw.startsWith("[") && raw.endsWith("]")) {
@@ -176,35 +175,37 @@ public final class SimpleTextCodec {
 
                     // if (!raw.isBlank()) {
                     // for (String u : raw.split(",")) {
-                    // onlineUsers.add(u.trim());
+                    // onlineUsers.add(u);
                     // }
                     // }
-                    // }....
 
-                    for (String u : bodyFields) { // not sure if this works because i can't debug the list atm and i
-                                                  // don't know wether we get a lot of bodyfields or just one containing
-                                                  // all the names
+                    System.out.println(bodyFields[0]);
+                    for (String u : bodyFields) {
                         onlineUsers.add(u);
                     }
                     msg = new UsersOnlineMessage(header, onlineUsers);
                     break;
+
                 case "SEND_PORT":
-                    
+
                     publicKey = bodyFields[0];
                     port = Integer.parseInt(bodyFields[1]);
-                    ipAddress=InetAddress.getByName(bodyFields[2].substring(1));
+                    ipAddress = InetAddress.getByName(bodyFields[2].substring(1));
                     msg = new SendPortMessage(header, port, publicKey, ipAddress);
                     break;
-            
+
                 case "ERROR":
+
                     errorCode = Integer.parseInt(bodyFields[0]);
                     msg = new ErrorMessage(header, errorCode);
                     break;
                 // case "FWD_CHAT_REQ":
-                //     requested_user = bodyFields[0];
-                //     msg = new ForwardChatRequestMessage(header, username);
-                //     break;
+                // requested_user = bodyFields[0];
+                // msg = new ForwardChatRequestMessage(header, username);
+                // break;
+
                 case "CHAT_MSG":
+
                     text = String.join(" ", bodyFields);
                     msg = new ChatMessage(header, text);
                     return (msg);
