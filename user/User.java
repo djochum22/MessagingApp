@@ -8,13 +8,13 @@ public class User {
     private String email;
     private String name;
     private String password;
-    private InetAddress ip;
+    private String ip;
     private int udpPort;
     private Socket tcpSocket;
     private String publicKey;
     private DataOutputStream out = null;
 
-    public User(String email, String name, String password, InetAddress ip, Socket tcpSocket, DataOutputStream out){
+    public User(String email, String name, String password, String ip, Socket tcpSocket, DataOutputStream out){
         this.email = email;
         this.name = name;
         this.password = password;
@@ -40,11 +40,7 @@ public class User {
         return password;
     }
 
-    public InetAddress getIp() {
-        return ip;
-    }
-
-    public InetAddress getIpObject() {
+    public String getIp() {
         return ip;
     }
 

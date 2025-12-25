@@ -9,9 +9,9 @@ public class SendPortMessage implements Message {
     private final MsgHeader header;
     private final int port;
     private final String publicKey;
-    private final InetAddress ipAddress;
+    private final String ipAddress;
 
-    public SendPortMessage(MsgHeader header, int port, String publicKey, InetAddress ipAddress) {
+    public SendPortMessage(MsgHeader header, int port, String publicKey, String ipAddress) {
         this.header = header;
         this.port = port;
         this.publicKey=publicKey;
@@ -29,7 +29,7 @@ public class SendPortMessage implements Message {
 
     
 
-    public InetAddress getIpAddress() {
+    public String getIpAddress() {
         return ipAddress;
     }
 
@@ -39,7 +39,7 @@ public class SendPortMessage implements Message {
 
     @Override
     public String toString() {
-        return String.format("SEND_PORT %s %d %s\r\n",publicKey, port,ipAddress); 
+        return String.format("SEND_PORT %d %s %s\r\n", port, publicKey ,ipAddress); 
     }
 
 }

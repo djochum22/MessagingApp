@@ -39,16 +39,7 @@ public class UserManagement {
                 user = u;
                 break;
             }
-        }
-        return user;
-
-    }
-
-    public User findRegisteredUser(InetAddress ip) {
-        User user = null;
-
-        for (User u : registeredUsers) {
-            if (u.getIpObject() == ip) {
+            if (u.getIp().equals(key)) {
                 user = u;
                 break;
             }
@@ -56,5 +47,6 @@ public class UserManagement {
         return user;
 
     }
+
 
 }

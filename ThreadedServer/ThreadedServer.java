@@ -4,6 +4,8 @@ package ThreadedServer;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
@@ -82,9 +84,10 @@ public class ThreadedServer {
                          case MsgType.REGISTER:
 
                               RegisterMessage message = (RegisterMessage) clientMessage;
+                              InetAddress address=socket.getInetAddress();
 
                               currUser = new User(message.getEmail(), message.getUsername(),
-                                        message.getPassword(), socket.getInetAddress(), socket, outToClient);
+                                        message.getPassword(), address.getHostAddress(), socket, outToClient);
 
                               if (userManagement.getRegisteredUsers().contains(currUser)) {
                                    response = new ErrorMessage(
@@ -165,7 +168,7 @@ public class ThreadedServer {
                               }
                               response = new SendPortMessage(
                                         new MsgHeader(MsgType.SEND_PORT, 1, 1, System.currentTimeMillis()),
-                                        reqUser.getUdpPort(), "", reqUser.getIp());
+                                        reqUser.getUdpPort(), " ", reqUser.getIp());
                               sendData(response, codec, outToClient);
                               System.out.println("Requested Port forwarded to " + currUser.getName());
 
@@ -188,7 +191,7 @@ public class ThreadedServer {
                          case MsgType.LOGOUT:
 
                               userManagement.setOffline(
-                                        userManagement.findRegisteredUser(socket.getInetAddress()));
+                                        userManagement.findRegisteredUser(socket.getInetAddress().getHostAddress()));
 
                               response = new LogoutOkMessage(
                                         new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));

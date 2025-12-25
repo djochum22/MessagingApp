@@ -11,6 +11,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 
 import codec.SimpleTextCodec;
@@ -104,6 +105,13 @@ public class TestClient2 {
                             System.out
                                     .println("Requested UserPort and IP-Adress received. Starting Chat...");
                             SendPortMessage port = (SendPortMessage) response;
+                            try {
+                                reqAddress= InetAddress.getByName(port.getIpAddress());
+                            } catch (UnknownHostException e) {
+                                // TODO Auto-generated catch block
+                                e.printStackTrace();
+                            }
+                            requested_udpPort=port.getPort();
 
                             state = States.CHATTING;
 
@@ -148,11 +156,11 @@ public class TestClient2 {
                                     break;
                                 case 3:
                                     System.out.println("Login failed. Username doesn't exist.");
-                                    state = States.USERS_REQUESTED;
+                                    state = States.WAITFORLOGIN;
                                     break;
                                 case 4:
                                     System.out.println("Login failed. Wrong password.");
-                                    state = States.USERS_REQUESTED;
+                                    state = States.WAITFORLOGIN;
                                     break;
                                 case 5:
                                     System.out.println("WhoOnline failed. No User online.");
@@ -164,7 +172,7 @@ public class TestClient2 {
                                     break;
                                 default:
                                     System.out.println("Unknown Error");
-                                    state = States.USERS_REQUESTED;
+                                    state = States.WAITFORLOGIN;
                                     break;
                             }
 
@@ -412,8 +420,7 @@ public class TestClient2 {
                         clientUdpSocket.receive(receivePacket);
                         int length = receivePacket.getLength();
                         byte[] data = Arrays.copyOf(receivePacket.getData(), length);
-                        reqAddress = receivePacket.getAddress();
-                        requested_udpPort = receivePacket.getPort();
+                    
 
                         // if it is an ACK because it would just be a zero
                         if (length == 1 && data[0] == 48) {
@@ -479,7 +486,7 @@ public class TestClient2 {
 
                         msgData = codec.encode(chat_message);
 
-                        DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);
+                        DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);//TODO
                         lastPacket = sendPacket;
                         udpStates = UDPStates.WAIT_FOR_ACK;
                         clientUdpSocket.send(sendPacket);

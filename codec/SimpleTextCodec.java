@@ -104,11 +104,11 @@ public final class SimpleTextCodec {
         String reqAddress = null;
         int personal_port = 0;
         String publicKey = null;
-        InetAddress ipAddress = null;
+        String ipAddress = null;
 
-        int port;
+        int port=0;
         String text = null;
-        int errorCode;
+        int errorCode=0;
         ArrayList<String> onlineUsers = new ArrayList<>();
 
         for (String part : bodyLines) {
@@ -160,7 +160,7 @@ public final class SimpleTextCodec {
                     break;
                 case "FWD_CHAT_REQ":
                     requestingUser = bodyFields[0];
-                    ipAddress = InetAddress.getByName(bodyFields[1].substring(1));
+                    ipAddress = bodyFields[1];
                     requestingUserPort = Integer.parseInt(bodyFields[2]);
                     publicKey = bodyFields[3];
                     msg = new ForwardChatRequestMessage(header, requestingUser, ipAddress, requestingUserPort,
@@ -187,13 +187,19 @@ public final class SimpleTextCodec {
                     break;
 
                 case "SEND_PORT":
-
-                    publicKey = bodyFields[0];
-                    port = Integer.parseInt(bodyFields[1]);
-                    ipAddress = InetAddress.getByName(bodyFields[2].substring(1));
+                    try {
+                    port = Integer.parseInt(bodyFields[0]);
+                    publicKey = bodyFields[1];
+                    ipAddress = bodyFields[2];
+                        
+                    } catch (Exception e) {
+                       for(String s: bodyFields){
+                        System.out.println(s);
+                       }; 
+                    }
+                  
                     msg = new SendPortMessage(header, port, publicKey, ipAddress);
                     break;
-
                 case "ERROR":
 
                     errorCode = Integer.parseInt(bodyFields[0]);
