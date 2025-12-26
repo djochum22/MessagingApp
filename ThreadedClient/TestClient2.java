@@ -561,7 +561,12 @@ public class TestClient2 {
             // Thread message_receive_thread = new Thread(() -> {
             String message = null;
 
+            if (udpStates==UDPStates.WAIT_FOR_ACK){
+                System.out.print("Wait for Ack");
+            }else{
+
             System.out.println("Message: ");
+            }
 
             udpStates = UDPStates.WAIT_FOR_SEND;
 
