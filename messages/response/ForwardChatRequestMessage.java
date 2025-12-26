@@ -29,7 +29,7 @@ public class ForwardChatRequestMessage implements Message {
 
     @Override
     public String toString() {
-        return String.format("FWD_CHAT_REQ  %s %s %d %s\r\n", requesting_user, ip, udpPort,publicKey);
+        return String.format("FWD_CHAT_REQ %s %s %d %s\r\n", requesting_user, ip, udpPort,publicKey);
     }
 
     

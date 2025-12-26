@@ -94,9 +94,9 @@ public final class SimpleTextCodec {
     public Message constructMessage(String bodyLines[], MsgHeader header) throws Exception {
 
         Message msg = null;
-        String email;
-        String username = null;
-        String password;
+        String email = null, username = null, hashedPassword = null, saltEncoded =null;
+        
+        int iterations = 0;
         String requested_user = null;
         String requestingUser = null;
 
@@ -106,9 +106,9 @@ public final class SimpleTextCodec {
         String publicKey = null;
         String ipAddress = null;
 
-        int port=0;
+        int port = 0;
         String text = null;
-        int errorCode=0;
+        int errorCode = 0;
         ArrayList<String> onlineUsers = new ArrayList<>();
 
         for (String part : bodyLines) {
@@ -119,7 +119,7 @@ public final class SimpleTextCodec {
 
             switch (command) {
 
-                case "SEND_PORT_KEY":
+                case "PORT_KEY":
                     publicKey = bodyFields[0];
                     personal_port = Integer.parseInt(bodyFields[1]);
                     msg = new PortKeyMessage(header, publicKey, personal_port);
@@ -128,13 +128,15 @@ public final class SimpleTextCodec {
                 case "REGISTER":
                     email = bodyFields[0];
                     username = bodyFields[1];
-                    password = bodyFields[2];
-                    msg = new RegisterMessage(header, email, username, password);
+                    hashedPassword = bodyFields[2];
+                    saltEncoded= bodyFields[3];
+                    iterations = Integer.parseInt(bodyFields[4]);
+                    msg = new RegisterMessage(header, email, username, hashedPassword, saltEncoded, iterations);
                     break;
                 case "LOGIN":
                     email = bodyFields[0];
-                    password = bodyFields[1];
-                    msg = new LoginMessage(header, email, password);
+                    hashedPassword = bodyFields[1];
+                    msg = new LoginMessage(header, email, hashedPassword);
                     break;
                 case "CHAT_REQ":
                     requested_user = bodyFields[0];
@@ -181,23 +183,28 @@ public final class SimpleTextCodec {
 
                     System.out.println(bodyFields[0]);
                     for (String u : bodyFields) {
-                        onlineUsers.add(u);
+                        String s = u.replace("[[", "[")
+                                .replace("]]", "]")
+                                .replace(",,", ",");
+                        onlineUsers.add(s);
                     }
                     msg = new UsersOnlineMessage(header, onlineUsers);
                     break;
 
                 case "SEND_PORT":
                     try {
-                    port = Integer.parseInt(bodyFields[0]);
-                    publicKey = bodyFields[1];
-                    ipAddress = bodyFields[2];
-                        
+                        port = Integer.parseInt(bodyFields[0]);
+                        publicKey = bodyFields[1];
+
+                        ipAddress = bodyFields[2];
+
                     } catch (Exception e) {
-                       for(String s: bodyFields){
-                        System.out.println(s);
-                       }; 
+                        for (String s : bodyFields) {
+                            System.out.println(s);
+                        }
+                        ;
                     }
-                  
+
                     msg = new SendPortMessage(header, port, publicKey, ipAddress);
                     break;
                 case "ERROR":

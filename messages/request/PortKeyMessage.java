@@ -32,7 +32,7 @@ public class PortKeyMessage  implements Message{
 
     @Override
     public String toString() {
-        return String.format("SEND_PORT_KEY %s %d\r\n", publicKey, udpPort);
+        return String.format("PORT_KEY %s %d\r\n", publicKey, udpPort);
     }
 
 

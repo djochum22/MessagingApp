@@ -7,17 +7,22 @@ import java.net.Socket;
 public class User {
     private String email;
     private String name;
-    private String password;
+    private String hashedPassword;
     private String ip;
     private int udpPort;
     private Socket tcpSocket;
     private String publicKey;
+    private String saltEncoded;
+    private int iterations;
+
     private DataOutputStream out = null;
 
-    public User(String email, String name, String password, String ip, Socket tcpSocket, DataOutputStream out){
+    public User(String email, String name, String hashedPassword, String saltEncoded, int iterations, String ip, Socket tcpSocket, DataOutputStream out){
         this.email = email;
         this.name = name;
-        this.password = password;
+        this.hashedPassword = hashedPassword;
+        this.saltEncoded=saltEncoded;
+        this.iterations =iterations;
         this.ip = ip;
         this.tcpSocket =tcpSocket;
         this.udpPort=0;
@@ -36,9 +41,24 @@ public class User {
         return name;
     }
 
-    public String getPassword() {
-        return password;
+    public String gethashedPassword() {
+        return hashedPassword;
     }
+
+    
+
+    public String getSaltEncoded() {
+        return saltEncoded;
+    }
+
+
+
+    public int getIterations() {
+        return iterations;
+    }
+
+
+
 
     public String getIp() {
         return ip;

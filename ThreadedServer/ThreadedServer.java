@@ -8,6 +8,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Base64;
 import java.util.HashMap;
 
 import codec.SimpleTextCodec;
@@ -84,10 +85,11 @@ public class ThreadedServer {
                          case MsgType.REGISTER:
 
                               RegisterMessage message = (RegisterMessage) clientMessage;
-                              InetAddress address=socket.getInetAddress();
+                              InetAddress address = socket.getInetAddress();
 
                               currUser = new User(message.getEmail(), message.getUsername(),
-                                        message.getPassword(), address.getHostAddress(), socket, outToClient);
+                                        message.getHashedPassword(), message.getSaltEncoded(), message.getIterations(),
+                                        address.getHostAddress(), socket, outToClient);
 
                               if (userManagement.getRegisteredUsers().contains(currUser)) {
                                    response = new ErrorMessage(
@@ -114,27 +116,51 @@ public class ThreadedServer {
                                    System.out.println("Login ErrorMessage sent.");
                                    break;
 
-                              } else if (!userManagement.findRegisteredUser(loginMsg.getEmail())
-                                        .getPassword().equals(loginMsg.getPassword())) {
-                                   response = new ErrorMessage(
-                                             new MsgHeader(MsgType.ERROR, 1, 1, System.currentTimeMillis()), 4);
-                                   sendData(response, codec, outToClient);
-                                   System.out.println("Login ErrorMessage sent.");
-                                   break;
+                              } else
+                                   try {
+                                        if (!verifyPassword(loginMsg.getPassword(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .gethashedPassword(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .getSaltEncoded(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .getIterations())) {
+                                             response = new ErrorMessage(
+                                                       new MsgHeader(MsgType.ERROR, 1, 1, System.currentTimeMillis()),
+                                                       4);
+                                             sendData(response, codec, outToClient);
+                                             System.out.println("Login ErrorMessage sent.");
+                                             break;
 
-                              }
-                              userManagement.setOnline(userManagement.findRegisteredUser(loginMsg.getEmail()));
+                                        }
 
-                              response = new LoginOkMessage(
-                                        new MsgHeader(MsgType.LOGIN_OK, 1, 1, System.currentTimeMillis()));
-                              sendData(response, codec, outToClient);
-                              System.out.println("Login Ok message sent.");
+                                        else if (verifyPassword(loginMsg.getPassword(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .gethashedPassword(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .getSaltEncoded(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .getIterations())) {
+                                             userManagement.setOnline(userManagement.findRegisteredUser(loginMsg.getEmail()));
+
+                                             response = new LoginOkMessage(
+                                                       new MsgHeader(MsgType.LOGIN_OK, 1, 1,
+                                                                 System.currentTimeMillis()));
+                                             sendData(response, codec, outToClient);
+                                             System.out.println("Login Ok message sent.");
+                                        }
+                                   } catch (Exception e) {
+                                        // TODO Auto-generated catch block
+                                        e.printStackTrace();
+                                   }
+
                               break;
                          case MsgType.PORT_KEY:
                               PortKeyMessage pk = (PortKeyMessage) clientMessage;
                               currUser.setPublicKey(pk.getPublicKey());
                               currUser.setUdpPort(pk.getGetUdpPort());
-                              System.out.println("Added Port and Key to User Information");
+                              System.out.println("Added Port " + pk.getGetUdpPort() + " and Key to " + pk.getPublicKey()
+                                        + "  User Information");
                               break;
 
                          case MsgType.WHO_ONLINE:
@@ -169,21 +195,25 @@ public class ThreadedServer {
                               response = new SendPortMessage(
                                         new MsgHeader(MsgType.SEND_PORT, 1, 1, System.currentTimeMillis()),
                                         reqUser.getUdpPort(), " ", reqUser.getIp());
+                              System.out.println(reqUser.getUdpPort());
+                              System.out.println(reqUser.getIp()); // TODO here 0 trace back
                               sendData(response, codec, outToClient);
                               System.out.println("Requested Port forwarded to " + currUser.getName());
 
-                              response = new ForwardChatRequestMessage(new MsgHeader(MsgType.FWD_CHAT_REQ, 1, 1, System.currentTimeMillis()),
-                              currUser.getName(),
-                              currUser.getIp(),
-                              currUser.getUdpPort(),
-                              currUser.getPublicKey());
+                              response = new SendPortMessage(
+                                        new MsgHeader(MsgType.FWD_CHAT_REQ, 1, 1, System.currentTimeMillis()),
+                                        currUser.getUdpPort(),
+                                        currUser.getPublicKey(),
+                                        currUser.getIp());
+                              System.out.println(currUser.getUdpPort()); // TODO also 0
+                              System.out.println(currUser.getIp());
 
                               DataOutputStream outToRecipient = new DataOutputStream(
-                              reqUser.getTcpSocket().getOutputStream());
+                                        reqUser.getTcpSocket().getOutputStream());
                               sendData(response, codec, outToRecipient);
                               System.out.println("Message forwarded to " + reqUser.getName());
                               break;
-                      
+
                          case MsgType.QUIT_REQ:
 
                               return;
@@ -242,6 +272,12 @@ public class ThreadedServer {
                e.printStackTrace();
                System.err.println("Could not send Data to Sever");
           }
+     }
+
+     public static boolean verifyPassword(String inputPassword, String storedHash, String storedSalt, int iterations)
+               throws Exception {
+          byte[] salt = Base64.getDecoder().decode(storedSalt);
+          return storedHash.equals(inputPassword);
      }
 
      private static Message receiveData(SimpleTextCodec codec, DataInputStream inFromCLient) {
