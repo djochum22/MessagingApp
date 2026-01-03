@@ -46,6 +46,9 @@ public class ThreadedClient {
     private boolean udpRunning = false;
     private DatagramPacket lastPacket = null;
 
+    // create a UDP port, private key and public key
+    // send the server gets the udp port und die public key do this when you logged in
+
     public ThreadedClient() {
         codec = new SimpleTextCodec();
     }
@@ -352,6 +355,7 @@ public class ThreadedClient {
 
                     ChatMessageACK chat_message_ack = new ChatMessageACK(0);
                     byte[] msgData = chat_message_ack.data();
+                    // change ipAddress and port read it out of datagrampacket
                     DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, ipAddress, users_port);
 
                     clientUdpSocket.send(sendPacket);
