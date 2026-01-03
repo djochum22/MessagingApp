@@ -1,5 +1,6 @@
 package codec;
 
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,6 +11,7 @@ import messages.MsgType;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
 import messages.request.LogoutMessage;
+import messages.request.PortKeyMessage;
 import messages.request.QuitReqMessage;
 import messages.request.RegisterMessage;
 import messages.request.WhoOnlineMessage;
@@ -17,7 +19,8 @@ import messages.response.ChatReqDeniedMessage;
 import messages.response.ChatReqOkMessage;
 import messages.response.ErrorMessage;
 import messages.response.ForwardChatRequestMessage;
-import messages.response.OkMessage;
+import messages.response.LoginOkMessage;
+import messages.response.RegistrationOkMessage;
 import messages.response.SendPortMessage;
 import messages.response.UsersOnlineMessage;
 import messages.UDPmessages.ChatMessage;
@@ -91,16 +94,21 @@ public final class SimpleTextCodec {
     public Message constructMessage(String bodyLines[], MsgHeader header) throws Exception {
 
         Message msg = null;
-        String email;
-        String username;
-        String password;
+        String email = null, username = null, hashedPassword = null, saltEncoded =null;
+        
+        int iterations = 0;
         String requested_user = null;
-        int requested_user_port;
+        String requestingUser = null;
+
+        int requestingUserPort = 0;
         String reqAddress = null;
-        int personal_port;
-        int port;
-        String text;
-        int errorCode;
+        int personal_port = 0;
+        String publicKey = null;
+        String ipAddress = null;
+
+        int port = 0;
+        String text = null;
+        int errorCode = 0;
         ArrayList<String> onlineUsers = new ArrayList<>();
 
         for (String part : bodyLines) {
@@ -110,16 +118,25 @@ public final class SimpleTextCodec {
             bodyFields = Arrays.copyOfRange(bodyFields, 1, bodyFields.length); // remove first word
 
             switch (command) {
+
+                case "PORT_KEY":
+                    publicKey = bodyFields[0];
+                    personal_port = Integer.parseInt(bodyFields[1]);
+                    msg = new PortKeyMessage(header, publicKey, personal_port);
+                    break;
+
                 case "REGISTER":
                     email = bodyFields[0];
                     username = bodyFields[1];
-                    password = bodyFields[2];
-                    msg = new RegisterMessage(header, email, username, password);
+                    hashedPassword = bodyFields[2];
+                    saltEncoded= bodyFields[3];
+                    iterations = Integer.parseInt(bodyFields[4]);
+                    msg = new RegisterMessage(header, email, username, hashedPassword, saltEncoded, iterations);
                     break;
                 case "LOGIN":
                     email = bodyFields[0];
-                    password = bodyFields[1];
-                    msg = new LoginMessage(header, email, password);
+                    hashedPassword = bodyFields[1];
+                    msg = new LoginMessage(header, email, hashedPassword);
                     break;
                 case "CHAT_REQ":
                     requested_user = bodyFields[0];
@@ -134,22 +151,25 @@ public final class SimpleTextCodec {
                 case "QUIT_REQ":
                     msg = new QuitReqMessage(header);
                     break;
-                case "OK":
-                    msg = new OkMessage(header);
+                case "LOGIN_OK":
+                    msg = new LoginOkMessage(header);
                     break;
-                case "CHAT_REQ_OK":
-                    requested_user_port = Integer.parseInt(bodyFields[0]);
-                    reqAddress = bodyFields[1];
-                    personal_port = Integer.parseInt(bodyFields[2]);
-                    msg = new ChatReqOkMessage(header, requested_user_port, reqAddress, personal_port);
+                case "REG_OK":
+                    msg = new RegistrationOkMessage(header);
+                    break;
+                case "LOGOUT_OK":
+                    msg = new RegistrationOkMessage(header);
+                    break;
+                case "FWD_CHAT_REQ":
+                    requestingUser = bodyFields[0];
+                    ipAddress = bodyFields[1];
+                    requestingUserPort = Integer.parseInt(bodyFields[2]);
+                    publicKey = bodyFields[3];
+                    msg = new ForwardChatRequestMessage(header, requestingUser, ipAddress, requestingUserPort,
+                            publicKey);
                     break;
                 case "USERS_ONLINE":
 
-                    // according to chatty the toString() of an Arraylist returns [element1,
-                    // element2]
-                    // therefor the following method should work
-
-                    // String raw = bodyFields[0];
                     // raw = raw.trim();
 
                     // if (raw.startsWith("[") && raw.endsWith("]")) {
@@ -157,39 +177,51 @@ public final class SimpleTextCodec {
 
                     // if (!raw.isBlank()) {
                     // for (String u : raw.split(",")) {
-                    // onlineUsers.add(u.trim());
+                    // onlineUsers.add(u);
                     // }
                     // }
-                    // }....
 
-                    for (String u : bodyFields) { // not sure if this works because i can't debug the list atm and i
-                                                  // don't know wether we get a lot of bodyfields or just one containing
-                                                  // all the names
-                        onlineUsers.add(u);
+                    System.out.println(bodyFields[0]);
+                    for (String u : bodyFields) {
+                        String s = u.replace("[[", "[")
+                                .replace("]]", "]")
+                                .replace(",,", ",");
+                        onlineUsers.add(s);
                     }
                     msg = new UsersOnlineMessage(header, onlineUsers);
                     break;
+
                 case "SEND_PORT":
-                    port = Integer.parseInt(bodyFields[0]);
-                    username = bodyFields[1];
-                    msg = new SendPortMessage(header, port, username);
-                    break;
-                case "CHAT_REQ_DENIED":
-                    requested_user = bodyFields[0];
-                    msg = new ChatReqDeniedMessage(header, requested_user);
+                    try {
+                        port = Integer.parseInt(bodyFields[0]);
+                        publicKey = bodyFields[1];
+
+                        ipAddress = bodyFields[2];
+
+                    } catch (Exception e) {
+                        for (String s : bodyFields) {
+                            System.out.println(s);
+                        }
+                        ;
+                    }
+
+                    msg = new SendPortMessage(header, port, publicKey, ipAddress);
                     break;
                 case "ERROR":
+
                     errorCode = Integer.parseInt(bodyFields[0]);
                     msg = new ErrorMessage(header, errorCode);
                     break;
-                case "FWD_CHAT_REQ":
-                    requested_user = bodyFields[0];
-                    msg = new ForwardChatRequestMessage(header, requested_user);
-                    break;
+                // case "FWD_CHAT_REQ":
+                // requested_user = bodyFields[0];
+                // msg = new ForwardChatRequestMessage(header, username);
+                // break;
+
                 case "CHAT_MSG":
-                    text = bodyFields[0];
+
+                    text = String.join(" ", bodyFields);
                     msg = new ChatMessage(header, text);
-                    return(msg);
+                    return (msg);
                 default:
                     throw new Exception("Unsupported Body-Field");
             }

@@ -4,18 +4,27 @@ package ThreadedServer;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Base64;
+import java.util.HashMap;
+
 import codec.SimpleTextCodec;
 import messages.Message;
 import messages.MsgHeader;
 import messages.MsgType;
 import messages.request.ChatReqMessage;
 import messages.request.LoginMessage;
+import messages.request.PortKeyMessage;
 import messages.request.RegisterMessage;
-import messages.response.ChatReqOkMessage;
 import messages.response.ErrorMessage;
-import messages.response.OkMessage;
+import messages.response.ForwardChatRequestMessage;
+import messages.response.LoginOkMessage;
+import messages.response.LogoutOkMessage;
+import messages.response.RegistrationOkMessage;
+import messages.response.SendPortMessage;
 import messages.response.UsersOnlineMessage;
 import user.User;
 import user.UserManagement;
@@ -26,9 +35,10 @@ public class ThreadedServer {
 
      String encodedResponse;
      SimpleTextCodec codec = new SimpleTextCodec();
-     Message clientMessage, response;
+     Message clientMessage, response, request;
      boolean headerDone = false;
      private ServerSocket welcomeSocket;
+     HashMap<String, DataOutputStream> connectedClients = new HashMap<>();
 
      public ThreadedServer() {
           try {
@@ -58,7 +68,8 @@ public class ThreadedServer {
           DataInputStream inFromClient = null;
           DataOutputStream outToClient = null;
           User currUser = null;
-
+          String requested_user = null;
+          User reqUser = null;
           try {
                inFromClient = new DataInputStream(socket.getInputStream());
                outToClient = new DataOutputStream(socket.getOutputStream());
@@ -74,10 +85,11 @@ public class ThreadedServer {
                          case MsgType.REGISTER:
 
                               RegisterMessage message = (RegisterMessage) clientMessage;
+                              InetAddress address = socket.getInetAddress();
 
-                              int udpPort = (int) (Math.random() * 9000) + 1000;
                               currUser = new User(message.getEmail(), message.getUsername(),
-                                        message.getPassword(), socket.getInetAddress(), udpPort);
+                                        message.getHashedPassword(), message.getSaltEncoded(), message.getIterations(),
+                                        address.getHostAddress(), socket, outToClient);
 
                               if (userManagement.getRegisteredUsers().contains(currUser)) {
                                    response = new ErrorMessage(
@@ -88,8 +100,9 @@ public class ThreadedServer {
 
                               }
                               userManagement.register(currUser);
-                              response = new OkMessage(
-                                        new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
+
+                              response = new RegistrationOkMessage(
+                                        new MsgHeader(MsgType.REGISTRATION_OK, 1, 1, System.currentTimeMillis()));
                               sendData(response, codec, outToClient);
                               System.out.println("Registration Ok message sent.");
                               break;
@@ -103,21 +116,51 @@ public class ThreadedServer {
                                    System.out.println("Login ErrorMessage sent.");
                                    break;
 
-                              } else if (!userManagement.findRegisteredUser(loginMsg.getEmail())
-                                        .getPassword().equals(loginMsg.getPassword())) {
-                                   response = new ErrorMessage(
-                                             new MsgHeader(MsgType.ERROR, 1, 1, System.currentTimeMillis()), 4);
-                                   sendData(response, codec, outToClient);
-                                   System.out.println("Login ErrorMessage sent.");
-                                   break;
+                              } else
+                                   try {
+                                        if (!verifyPassword(loginMsg.getPassword(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .gethashedPassword(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .getSaltEncoded(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .getIterations())) {
+                                             response = new ErrorMessage(
+                                                       new MsgHeader(MsgType.ERROR, 1, 1, System.currentTimeMillis()),
+                                                       4);
+                                             sendData(response, codec, outToClient);
+                                             System.out.println("Login ErrorMessage sent.");
+                                             break;
 
-                              }
-                              userManagement.setOnline(userManagement.findRegisteredUser(loginMsg.getEmail()));
+                                        }
 
-                              response = new OkMessage(
-                                        new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
-                              sendData(response, codec, outToClient);
-                              System.out.println("Login Ok message sent.");
+                                        else if (verifyPassword(loginMsg.getPassword(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .gethashedPassword(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .getSaltEncoded(),
+                                                  userManagement.findRegisteredUser(loginMsg.getEmail())
+                                                            .getIterations())) {
+                                             userManagement.setOnline(userManagement.findRegisteredUser(loginMsg.getEmail()));
+
+                                             response = new LoginOkMessage(
+                                                       new MsgHeader(MsgType.LOGIN_OK, 1, 1,
+                                                                 System.currentTimeMillis()));
+                                             sendData(response, codec, outToClient);
+                                             System.out.println("Login Ok message sent.");
+                                        }
+                                   } catch (Exception e) {
+                                        // TODO Auto-generated catch block
+                                        e.printStackTrace();
+                                   }
+
+                              break;
+                         case MsgType.PORT_KEY:
+                              PortKeyMessage pk = (PortKeyMessage) clientMessage;
+                              currUser.setPublicKey(pk.getPublicKey());
+                              currUser.setUdpPort(pk.getGetUdpPort());
+                              System.out.println("Added Port " + pk.getGetUdpPort() + " and Key to " + pk.getPublicKey()
+                                        + "  User Information");
                               break;
 
                          case MsgType.WHO_ONLINE:
@@ -138,8 +181,8 @@ public class ThreadedServer {
 
                          case MsgType.CHAT_REQ:
                               ChatReqMessage chatReqMessage = (ChatReqMessage) clientMessage;
-                              String requested_user = chatReqMessage.getRequested_user();
-                              User reqUser = userManagement.findRegisteredUser(requested_user);
+                              requested_user = chatReqMessage.getRequested_user();
+                              reqUser = userManagement.findRegisteredUser(requested_user);
 
                               if (reqUser == null) {
                                    response = new ErrorMessage(
@@ -149,12 +192,26 @@ public class ThreadedServer {
                                    break;
 
                               }
-
-                              response = new ChatReqOkMessage(
-                                        new MsgHeader(MsgType.CHAT_REQ_OK, 1, 1, System.currentTimeMillis()),
-                                        reqUser.getUdpPort(), reqUser.getIp(), currUser.getUdpPort());
+                              response = new SendPortMessage(
+                                        new MsgHeader(MsgType.SEND_PORT, 1, 1, System.currentTimeMillis()),
+                                        reqUser.getUdpPort(), " ", reqUser.getIp());
+                              System.out.println(reqUser.getUdpPort());
+                              System.out.println(reqUser.getIp()); // TODO here 0 trace back
                               sendData(response, codec, outToClient);
-                              System.out.println("Requested UDP Info sent.");
+                              System.out.println("Requested Port forwarded to " + currUser.getName());
+
+                              response = new SendPortMessage(
+                                        new MsgHeader(MsgType.FWD_CHAT_REQ, 1, 1, System.currentTimeMillis()),
+                                        currUser.getUdpPort(),
+                                        currUser.getPublicKey(),
+                                        currUser.getIp());
+                              System.out.println(currUser.getUdpPort()); // TODO also 0
+                              System.out.println(currUser.getIp());
+
+                              DataOutputStream outToRecipient = new DataOutputStream(
+                                        reqUser.getTcpSocket().getOutputStream());
+                              sendData(response, codec, outToRecipient);
+                              System.out.println("Message forwarded to " + reqUser.getName());
                               break;
 
                          case MsgType.QUIT_REQ:
@@ -164,10 +221,10 @@ public class ThreadedServer {
                          case MsgType.LOGOUT:
 
                               userManagement.setOffline(
-                                        userManagement.findRegisteredUser(socket.getInetAddress()));
+                                        userManagement.findRegisteredUser(socket.getInetAddress().getHostAddress()));
 
-                              response = new OkMessage(
-                                        new MsgHeader(MsgType.OK, 1, 1, System.currentTimeMillis()));
+                              response = new LogoutOkMessage(
+                                        new MsgHeader(MsgType.LOGOUT, 1, 1, System.currentTimeMillis()));
                               sendData(response, codec, outToClient);
                               System.out.println("Logout Ok message sent. User looged out.");
                               break;
@@ -215,6 +272,12 @@ public class ThreadedServer {
                e.printStackTrace();
                System.err.println("Could not send Data to Sever");
           }
+     }
+
+     public static boolean verifyPassword(String inputPassword, String storedHash, String storedSalt, int iterations)
+               throws Exception {
+          byte[] salt = Base64.getDecoder().decode(storedSalt);
+          return storedHash.equals(inputPassword);
      }
 
      private static Message receiveData(SimpleTextCodec codec, DataInputStream inFromCLient) {

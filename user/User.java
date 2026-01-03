@@ -1,22 +1,37 @@
 package user;
 
+import java.io.DataOutputStream;
 import java.net.InetAddress;
+import java.net.Socket;
 
 public class User {
     private String email;
     private String name;
-    private String password;
-    private InetAddress ip;
+    private String hashedPassword;
+    private String ip;
     private int udpPort;
+    private Socket tcpSocket;
+    private String publicKey;
+    private String saltEncoded;
+    private int iterations;
 
-    
-    public User(String email, String name, String password, InetAddress ip, int udpPort){
+    private DataOutputStream out = null;
+
+    public User(String email, String name, String hashedPassword, String saltEncoded, int iterations, String ip, Socket tcpSocket, DataOutputStream out){
         this.email = email;
         this.name = name;
-        this.password = password;
+        this.hashedPassword = hashedPassword;
+        this.saltEncoded=saltEncoded;
+        this.iterations =iterations;
         this.ip = ip;
-        this.udpPort = udpPort;
+        this.tcpSocket =tcpSocket;
+        this.udpPort=0;
+        this.publicKey=null;
+        this.out=out;
+        
     }
+
+    
 
     public String getEmail() {
         return email;
@@ -26,20 +41,52 @@ public class User {
         return name;
     }
 
-    public String getPassword() {
-        return password;
+    public String gethashedPassword() {
+        return hashedPassword;
     }
+
+    
+
+    public String getSaltEncoded() {
+        return saltEncoded;
+    }
+
+
+
+    public int getIterations() {
+        return iterations;
+    }
+
+
+
 
     public String getIp() {
-        return ip.getHostName();
-    }
-
-    public InetAddress getIpObject() {
         return ip;
     }
 
-    public int getUdpPort(){
+    public int getUdpPort() {
         return udpPort;
     }
- 
+
+    public void setUdpPort(int udpPort) {
+        this.udpPort = udpPort;
+    }
+
+    public void setPublicKey(String publicKey) {
+        this.publicKey = publicKey;
+    }
+
+    public String getPublicKey() {
+        return publicKey;
+    }
+
+    public Socket getTcpSocket() {
+        return tcpSocket;
+    }
+
+
+    public DataOutputStream getOut() {
+        return out;
+    }
+
 }
