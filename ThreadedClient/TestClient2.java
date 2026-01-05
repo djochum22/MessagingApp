@@ -13,11 +13,18 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Base64;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import codec.SimpleTextCodec;
 import messages.Message;
@@ -35,7 +42,7 @@ import messages.response.ErrorMessage;
 import messages.response.SendPortMessage;
 
 public class TestClient2 {
-    private Socket clientSocket;
+    private SSLSocket clientSocket;
     private UDPHandler udpHandler;
 
     private volatile States state = null;
@@ -53,15 +60,41 @@ public class TestClient2 {
     private boolean udpRunning = false;
     private DatagramPacket lastPacket = null;
     private boolean running = false;
-     private static final int SALT_LENGTH = 16;
+    private static final int SALT_LENGTH = 16;
     private static final int ITERATIONS = 100_000;
     private static final int KEY_LENGTH = 256;
     private String hashedPasswort;
     private byte [] salt;
     private String saltEncoded;
+    private TrustManager[] trustManagers;
+    private SSLContext sslContext;
+    private SSLSocketFactory sslSocketFactory;
 
     public TestClient2() {
         codec = new SimpleTextCodec();
+        try {
+            trustManagers = new TrustManager[]{
+                new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+                        // this still needs to be implemented as all Servers are being Trusted
+                        // TODO check with Schaible if this needs to be done
+                    }
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return new X509Certificate[0];
+                    }
+                }
+            };
+        } catch (Exception e) {
+            e.getStackTrace();
+        }
+        
     }
 
     public static void main(String[] args) throws IOException {
@@ -72,8 +105,18 @@ public class TestClient2 {
     public void run() throws IOException {
 
         try {
+            // Create SSL context
+            sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustManagers, new SecureRandom());
+
+            // Create SSL socket factory
+            sslSocketFactory = sslContext.getSocketFactory();
+
             try {
-                clientSocket = new Socket("localhost", 6324);
+                // Create SSL socket
+                clientSocket = (SSLSocket)sslSocketFactory.createSocket("localhost", 6324);
+
+                // clientSocket = new Socket("localhost", 6324);
                 System.out.println("Client connected end with \"END\"");
                 running = true;
                 state = States.WAIT_FOR_REGISTRATION;

@@ -3,13 +3,21 @@ package ThreadedServer;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.KeyStore;
 import java.util.Base64;
 import java.util.HashMap;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocket;
 
 import codec.SimpleTextCodec;
 import messages.Message;
@@ -37,14 +45,41 @@ public class ThreadedServer {
      SimpleTextCodec codec = new SimpleTextCodec();
      Message clientMessage, response, request;
      boolean headerDone = false;
-     private ServerSocket welcomeSocket;
      HashMap<String, DataOutputStream> connectedClients = new HashMap<>();
+     private char[] password;
+     private KeyStore keyStore;
+     private KeyManagerFactory kmf;
+     private SSLContext sslContext;
+     private SSLServerSocketFactory ssf;
+     private SSLServerSocket welcomeSocket;
 
      public ThreadedServer() {
           try {
-               welcomeSocket = new ServerSocket(6324);
+               // Create password and load keystore to hold password + server certificate
+               password = "password".toCharArray();
+               keyStore = KeyStore.getInstance("JKS");
+
+               try (FileInputStream fis = new FileInputStream("keystore.jks")) {
+                    keyStore.load(fis, password);
+               }
+
+               // Create key manager factory
+               kmf = KeyManagerFactory.getInstance("SunX509");
+               kmf.init(keyStore, password);
+
+               // Create SSL context
+               sslContext = SSLContext.getInstance("TLS");
+               sslContext.init(kmf.getKeyManagers(), null, null);
+
+               // Create SSL server socket factory
+               ssf = sslContext.getServerSocketFactory();
+
+               // Create SSL server socket
+               welcomeSocket = (SSLServerSocket)ssf.createServerSocket(6324);
+
+               // welcomeSocket = new ServerSocket(6324);
                System.out.println("Warte auf Client...");
-          } catch (IOException e) {
+          } catch (Exception e) {
                e.printStackTrace();
           }
      }
@@ -52,13 +87,14 @@ public class ThreadedServer {
      public void run_forever() {
           while (true) {
                try {
-                    final Socket socket = this.welcomeSocket.accept();
+                    // Accept incoming connections
+                    final SSLSocket socket = (SSLSocket)welcomeSocket.accept();
                     System.out.println("Client hat sich verbunden: " + socket.getInetAddress());
 
                     Thread thread = new Thread(() -> handleClient(socket));
                     thread.start();
 
-               } catch (IOException e) {
+               } catch (Exception e) {
                     e.printStackTrace();
                }
           }
