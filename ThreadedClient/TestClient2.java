@@ -8,12 +8,13 @@ import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
@@ -22,6 +23,10 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Base64;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import javax.net.ssl.SSLContext;
@@ -75,7 +80,7 @@ public class TestClient2 {
     private SSLSocketFactory sslSocketFactory;
     private KeyPairGenerator kpg;
     private KeyPair kp;
-    private PublicKey pub;
+    private PublicKey pub, reqPublicKey;
     private PrivateKey priv;
 
 
@@ -164,11 +169,11 @@ public class TestClient2 {
                             System.out.println(response.toString());
                             break;
                         case SEND_PORT:
-
                             System.out.println("Requested UserPort and IP-Adress received. Starting Chat...");
                             SendPortMessage port = (SendPortMessage) response;
                             try {
                                 reqAddress = InetAddress.getByName(port.getIpAddress());
+                                reqPublicKey = port.getPublicKey();
 
                             } catch (UnknownHostException e) {
                                 e.printStackTrace();
@@ -563,6 +568,11 @@ public class TestClient2 {
                         int length = receivePacket.getLength();
                         byte[] data = Arrays.copyOf(receivePacket.getData(), length);
 
+                        // decrpt data
+                        Cipher dec = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
+                        dec.init(Cipher.DECRYPT_MODE, priv);
+                        data = dec.doFinal(data);
+
                         // if it is an ACK because it would just be a zero
                         if (length == 1 && data[0] == 48) {
                             System.out.println("ACK RECEIVED!");
@@ -595,7 +605,7 @@ public class TestClient2 {
                             }
                         }
                         udpStates = UDPStates.WAIT_FOR_MESSAGE;
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                         e.getMessage();
                     }
                 }
@@ -609,21 +619,19 @@ public class TestClient2 {
             try {
                 clientUdpSocket.setSoTimeout(ms);
             } catch (SocketException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }
 
-        private void send() throws IOException {
+        private void send() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 
             // Thread message_receive_thread = new Thread(() -> {
             String message = null;
 
             if (udpStates==UDPStates.WAIT_FOR_ACK){
                 System.out.print("Wait for Ack");
-            }else{
-
-            System.out.println("Message: ");
+            } else {
+                System.out.println("Message: ");
             }
 
             udpStates = UDPStates.WAIT_FOR_SEND;
@@ -633,14 +641,20 @@ public class TestClient2 {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
+        
+            // TODO encypher the message using clients public key
             ChatMessage chat_message = new ChatMessage(
                     new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
 
             byte[] msgData;
 
             msgData = codec.encode(chat_message);
-
+            
+            // Encrypt data
+            Cipher enc = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
+            enc.init(Cipher.ENCRYPT_MODE, reqPublicKey);
+            msgData = enc.doFinal(msgData);
+            
             DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, peerAddress, peerPort);// TODO
             lastPacket = sendPacket;
             udpStates = UDPStates.WAIT_FOR_ACK;

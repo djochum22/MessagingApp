@@ -29,8 +29,6 @@ public class SendPortMessage implements Message {
         return port;
     }
 
-    
-
     public String getIpAddress() {
         return ipAddress;
     }
