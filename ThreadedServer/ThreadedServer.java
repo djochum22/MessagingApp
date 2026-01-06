@@ -230,7 +230,7 @@ public class ThreadedServer {
                               }
                               response = new SendPortMessage(
                                         new MsgHeader(MsgType.SEND_PORT, 1, 1, System.currentTimeMillis()),
-                                        reqUser.getUdpPort(), " ", reqUser.getIp());
+                                        reqUser.getUdpPort(), reqUser.getPublicKey(), reqUser.getIp());
                               System.out.println(reqUser.getUdpPort());
                               System.out.println(reqUser.getIp()); // TODO here 0 trace back
                               sendData(response, codec, outToClient);

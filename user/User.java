@@ -3,6 +3,7 @@ package user;
 import java.io.DataOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.security.PublicKey;
 
 public class User {
     private String email;
@@ -11,7 +12,7 @@ public class User {
     private String ip;
     private int udpPort;
     private Socket tcpSocket;
-    private String publicKey;
+    private PublicKey publicKey;
     private String saltEncoded;
     private int iterations;
 
@@ -28,10 +29,7 @@ public class User {
         this.udpPort=0;
         this.publicKey=null;
         this.out=out;
-        
     }
-
-    
 
     public String getEmail() {
         return email;
@@ -45,20 +43,13 @@ public class User {
         return hashedPassword;
     }
 
-    
-
     public String getSaltEncoded() {
         return saltEncoded;
     }
 
-
-
     public int getIterations() {
         return iterations;
     }
-
-
-
 
     public String getIp() {
         return ip;
@@ -72,11 +63,11 @@ public class User {
         this.udpPort = udpPort;
     }
 
-    public void setPublicKey(String publicKey) {
+    public void setPublicKey(PublicKey publicKey) {
         this.publicKey = publicKey;
     }
 
-    public String getPublicKey() {
+    public PublicKey getPublicKey() {
         return publicKey;
     }
 

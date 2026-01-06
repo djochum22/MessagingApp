@@ -12,6 +12,10 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -69,6 +73,11 @@ public class TestClient2 {
     private TrustManager[] trustManagers;
     private SSLContext sslContext;
     private SSLSocketFactory sslSocketFactory;
+    private KeyPairGenerator kpg;
+    private KeyPair kp;
+    private PublicKey pub;
+    private PrivateKey priv;
+
 
     public TestClient2() {
         codec = new SimpleTextCodec();
@@ -156,14 +165,12 @@ public class TestClient2 {
                             break;
                         case SEND_PORT:
 
-                            System.out
-                                    .println("Requested UserPort and IP-Adress received. Starting Chat...");
+                            System.out.println("Requested UserPort and IP-Adress received. Starting Chat...");
                             SendPortMessage port = (SendPortMessage) response;
                             try {
                                 reqAddress = InetAddress.getByName(port.getIpAddress());
 
                             } catch (UnknownHostException e) {
-                                // TODO Auto-generated catch block
                                 e.printStackTrace();
                             }
                             requested_udpPort = port.getPort(); // TODO currently 0??? trace back to where this message
@@ -176,13 +183,11 @@ public class TestClient2 {
                         case LOGOUT_OK:
 
                             try {
-                                System.out
-                                        .println("Closing UDP-Socket...");
+                                System.out.println("Closing UDP-Socket...");
                                 clientSocket.close();
                                 udpHandler.getClientUdpSocket().close();
                                 state = null;
                             } catch (IOException e) {
-                                // TODO Auto-generated catch block
                                 e.printStackTrace();
                             }
 
@@ -304,11 +309,20 @@ public class TestClient2 {
                             udpHandler.start(); // startet startListener()
                             udpRunning = true;
                         }
- 
+
                         System.out.println("UDP Port established. Sending PortNo " + udpHandler.getPort()
                                 + " and Public Key to Server..");
+
+                        // Generating clients keys
+                        kpg = KeyPairGenerator.getInstance("RSA");
+                        kpg.initialize(2048);
+                        kp = kpg.generateKeyPair();
+                        pub = kp.getPublic();
+                        priv = kp.getPrivate();
+ 
+                        // Send server clients public key
                         request = new PortKeyMessage(
-                                new MsgHeader(MsgType.PORT_KEY, 1, 1, System.currentTimeMillis()), "nA",
+                                new MsgHeader(MsgType.PORT_KEY, 1, 1, System.currentTimeMillis()), pub,
                                 udpHandler.getPort());
 
                         sendData = codec.encode(request);
@@ -377,6 +391,7 @@ public class TestClient2 {
                             break;
 
                         }
+
                         request = new ChatReqMessage(
                                 new MsgHeader(MsgType.CHAT_REQ, 1, 1, System.currentTimeMillis()), userChoice);
                         try {

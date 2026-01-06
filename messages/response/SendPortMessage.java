@@ -1,6 +1,8 @@
 package messages.response;
 
 import java.net.InetAddress;
+import java.security.PublicKey;
+import java.util.Base64;
 
 import messages.Message;
 import messages.MsgHeader;
@@ -8,10 +10,10 @@ import messages.MsgHeader;
 public class SendPortMessage implements Message {
     private final MsgHeader header;
     private final int port;
-    private final String publicKey;
+    private final PublicKey publicKey;
     private final String ipAddress;
 
-    public SendPortMessage(MsgHeader header, int port, String publicKey, String ipAddress) {
+    public SendPortMessage(MsgHeader header, int port, PublicKey publicKey, String ipAddress) {
         this.header = header;
         this.port = port;
         this.publicKey=publicKey;
@@ -33,13 +35,13 @@ public class SendPortMessage implements Message {
         return ipAddress;
     }
 
-    public String getPublicKey() {
+    public PublicKey getPublicKey() {
         return publicKey;
     }
 
     @Override
     public String toString() {
-        return String.format("SEND_PORT %d %s %s\r\n", port, publicKey ,ipAddress); 
+        return String.format("SEND_PORT %d %s %s\r\n", port, Base64.getEncoder().encodeToString(publicKey.getEncoded()) ,ipAddress); 
     }
 
 }

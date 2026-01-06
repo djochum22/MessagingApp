@@ -34,6 +34,7 @@ chat_req = "CHAT_REQ" SP requested_user SP requesting_user_port SP requested_ip_
 who_online = "WHO_ONLINE" CRLF
 logout = "LOGOUT" CRLF
 quit_req = "QUITREQ" CRLF
+port_key = "PORT_KEY" SP publicKey SP udpPort CRLF
 
 //response-messages
 

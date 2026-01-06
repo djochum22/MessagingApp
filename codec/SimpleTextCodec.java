@@ -2,8 +2,14 @@ package codec;
 
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 
 import messages.Message;
 import messages.MsgHeader;
@@ -118,11 +124,10 @@ public final class SimpleTextCodec {
             bodyFields = Arrays.copyOfRange(bodyFields, 1, bodyFields.length); // remove first word
 
             switch (command) {
-
                 case "PORT_KEY":
                     publicKey = bodyFields[0];
                     personal_port = Integer.parseInt(bodyFields[1]);
-                    msg = new PortKeyMessage(header, publicKey, personal_port);
+                    msg = new PortKeyMessage(header, decodePubKey(publicKey, "RSA"), personal_port);
                     break;
 
                 case "REGISTER":
@@ -166,7 +171,7 @@ public final class SimpleTextCodec {
                     requestingUserPort = Integer.parseInt(bodyFields[2]);
                     publicKey = bodyFields[3];
                     msg = new ForwardChatRequestMessage(header, requestingUser, ipAddress, requestingUserPort,
-                            publicKey);
+                            decodePubKey(publicKey, "RSA"));
                     break;
                 case "USERS_ONLINE":
 
@@ -205,7 +210,7 @@ public final class SimpleTextCodec {
                         ;
                     }
 
-                    msg = new SendPortMessage(header, port, publicKey, ipAddress);
+                    msg = new SendPortMessage(header, port, decodePubKey(publicKey, "RSA"), ipAddress);
                     break;
                 case "ERROR":
 
@@ -230,5 +235,20 @@ public final class SimpleTextCodec {
 
         return msg;
 
+    }
+    
+    /**
+     * Decodes the encoded Publickey object
+     * 
+     * @param key Encoded Public String Key
+     * @param alg What type of algorithm was used to generate the key
+     * @return PublicKey object
+     * @throws InvalidKeySpecException
+     * @throws NoSuchAlgorithmException
+     */
+    public PublicKey decodePubKey(String key, String alg) throws InvalidKeySpecException, NoSuchAlgorithmException {
+        byte[] keyBytes = Base64.getDecoder().decode(key);
+        X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+        return KeyFactory.getInstance(alg).generatePublic(spec);
     }
 }
