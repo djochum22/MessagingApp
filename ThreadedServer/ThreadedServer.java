@@ -186,7 +186,6 @@ public class ThreadedServer {
                                              System.out.println("Login Ok message sent.");
                                         }
                                    } catch (Exception e) {
-                                        // TODO Auto-generated catch block
                                         e.printStackTrace();
                                    }
 
@@ -231,8 +230,6 @@ public class ThreadedServer {
                               response = new SendPortMessage(
                                         new MsgHeader(MsgType.SEND_PORT, 1, 1, System.currentTimeMillis()),
                                         reqUser.getUdpPort(), reqUser.getPublicKey(), reqUser.getIp());
-                              System.out.println(reqUser.getUdpPort());
-                              System.out.println(reqUser.getIp()); // TODO here 0 trace back
                               sendData(response, codec, outToClient);
                               System.out.println("Requested Port forwarded to " + currUser.getName());
 
@@ -241,8 +238,6 @@ public class ThreadedServer {
                                         currUser.getUdpPort(),
                                         currUser.getPublicKey(),
                                         currUser.getIp());
-                              System.out.println(currUser.getUdpPort()); // TODO also 0
-                              System.out.println(currUser.getIp());
 
                               DataOutputStream outToRecipient = new DataOutputStream(
                                         reqUser.getTcpSocket().getOutputStream());

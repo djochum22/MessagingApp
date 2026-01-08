@@ -97,8 +97,6 @@ public class TestClient2 {
 
                     @Override
                     public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-                        // this still needs to be implemented as all Servers are being Trusted
-                        // TODO check with Schaible if this needs to be done
                     }
 
                     @Override
