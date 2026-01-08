@@ -1,7 +1,6 @@
 package user;
 
 import java.io.DataOutputStream;
-import java.net.InetAddress;
 import java.net.Socket;
 import java.security.PublicKey;
 

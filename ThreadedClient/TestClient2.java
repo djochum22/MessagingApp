@@ -97,8 +97,6 @@ public class TestClient2 {
 
                     @Override
                     public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-                        // this still needs to be implemented as all Servers are being Trusted
-                        // TODO check with Schaible if this needs to be done
                     }
 
                     @Override
@@ -132,12 +130,11 @@ public class TestClient2 {
                 // Create SSL socket
                 clientSocket = (SSLSocket)sslSocketFactory.createSocket("localhost", 6324);
 
-                // clientSocket = new Socket("localhost", 6324);
                 System.out.println("Client connected end with \"END\"");
                 running = true;
                 state = States.WAIT_FOR_REGISTRATION;
                 inFromUser = new BufferedReader(new InputStreamReader(System.in));
-                outToServer = new DataOutputStream(clientSocket.getOutputStream()); // // of byte-arrays
+                outToServer = new DataOutputStream(clientSocket.getOutputStream());
                 inFromServer = new DataInputStream(clientSocket.getInputStream());
                 udpHandler = new UDPHandler(inFromUser);
 
@@ -181,7 +178,7 @@ public class TestClient2 {
                                 e.printStackTrace();
                             }
                             requested_udpPort = port.getPort();
-                            udpHandler.setPeer(requested_udpPort, reqAddress); // is created
+                            udpHandler.setPeer(requested_udpPort, reqAddress);
 
                             state = States.CHATTING;
 
@@ -537,7 +534,7 @@ public class TestClient2 {
         }
 
         public int getPort() {
-            System.out.println(clientUdpSocket.getLocalPort()); // TODO here port is stll ok
+            System.out.println(clientUdpSocket.getLocalPort());
 
             return clientUdpSocket.getLocalPort();
         }
@@ -622,18 +619,8 @@ public class TestClient2 {
             message_receive_thread.start();
         }
 
-        public void setSocketTimeout(int ms) {
-
-            try {
-                clientUdpSocket.setSoTimeout(ms);
-            } catch (SocketException e) {
-                e.printStackTrace();
-            }
-        }
-
         private void send() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 
-            // Thread message_receive_thread = new Thread(() -> {
             String message = null;
 
             if (udpStates==UDPStates.WAIT_FOR_ACK){
@@ -670,7 +657,7 @@ public class TestClient2 {
             enc.init(Cipher.ENCRYPT_MODE, reqPublicKey);
             msgData = enc.doFinal(msgData);
             
-            DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, peerAddress, peerPort);// TODO
+            DatagramPacket sendPacket = new DatagramPacket(msgData, msgData.length, peerAddress, peerPort);
             lastPacket = sendPacket;
             udpStates = UDPStates.WAIT_FOR_ACK;
             clientUdpSocket.send(sendPacket);
@@ -679,7 +666,5 @@ public class TestClient2 {
         }
 
     };
-    // );
-    // message_receive_thread.start();
 
 }

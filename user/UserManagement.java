@@ -1,6 +1,5 @@
 package user;
 
-import java.net.InetAddress;
 import java.util.ArrayList;
 
 public class UserManagement {
