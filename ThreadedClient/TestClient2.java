@@ -83,6 +83,7 @@ public class TestClient2 {
     private PublicKey pub, reqPublicKey;
     private PrivateKey priv;
     private boolean exit = false;
+    private boolean loggedIn = false;
 
 
     public TestClient2() {
@@ -179,7 +180,7 @@ public class TestClient2 {
                             } catch (UnknownHostException e) {
                                 e.printStackTrace();
                             }
-                            requested_udpPort = port.getPort(); // TODO currently 0??? trace back to where this message
+                            requested_udpPort = port.getPort();
                             udpHandler.setPeer(requested_udpPort, reqAddress); // is created
 
                             state = States.CHATTING;
@@ -193,6 +194,7 @@ public class TestClient2 {
                                 clientSocket.close();
                                 udpHandler.getClientUdpSocket().close();
                                 state = null;
+                                loggedIn = false;
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
@@ -310,39 +312,42 @@ public class TestClient2 {
                         break;
 
                     case LOGGEDIN:
+                        if (!loggedIn) {
+                            if (!udpRunning) {
+                                udpHandler.start(); // startet startListener()
+                                udpRunning = true;
+                            }
 
-                        if (!udpRunning) {
-                            udpHandler.start(); // startet startListener()
-                            udpRunning = true;
+                            System.out.println("UDP Port established. Sending PortNo " + udpHandler.getPort()
+                                    + " and Public Key to Server..");
+
+                            // Generating clients keys
+                            kpg = KeyPairGenerator.getInstance("RSA");
+                            kpg.initialize(2048);
+                            kp = kpg.generateKeyPair();
+                            pub = kp.getPublic();
+                            priv = kp.getPrivate();
+    
+                            // Send server clients public key
+                            request = new PortKeyMessage(
+                                    new MsgHeader(MsgType.PORT_KEY, 1, 1, System.currentTimeMillis()), pub,
+                                    udpHandler.getPort());
+
+                            sendData = codec.encode(request);
+
+                            try {
+                                sendData(request, codec, outToServer);
+
+                            } catch (Exception e) {
+                                System.err.println("Message could not be sent");
+                                e.printStackTrace();
+                                e.getMessage();
+                            }
+
+                            System.out.println(udpHandler.getPort());
                         }
 
-                        System.out.println("UDP Port established. Sending PortNo " + udpHandler.getPort()
-                                + " and Public Key to Server..");
-
-                        // Generating clients keys
-                        kpg = KeyPairGenerator.getInstance("RSA");
-                        kpg.initialize(2048);
-                        kp = kpg.generateKeyPair();
-                        pub = kp.getPublic();
-                        priv = kp.getPrivate();
- 
-                        // Send server clients public key
-                        request = new PortKeyMessage(
-                                new MsgHeader(MsgType.PORT_KEY, 1, 1, System.currentTimeMillis()), pub,
-                                udpHandler.getPort());
-
-                        sendData = codec.encode(request);
-
-                        try {
-                            sendData(request, codec, outToServer);
-
-                        } catch (Exception e) {
-                            System.err.println("Message could not be sent");
-                            e.printStackTrace();
-                            e.getMessage();
-                        }
-
-                        System.out.println(udpHandler.getPort()); // here is port also o
+                        loggedIn = true;
 
                         request = new WhoOnlineMessage(
                                 new MsgHeader(MsgType.WHO_ONLINE, 1, 1, System.currentTimeMillis()));
@@ -361,7 +366,6 @@ public class TestClient2 {
                         break;
 
                     case USERS_REQUESTED:
-                        // TODO add here list of users
                         System.out.println("Who do you want to chat with? Please type name or 'logout' or 'refresh'");
                         userChoice = inFromUser.readLine();
 
@@ -378,6 +382,8 @@ public class TestClient2 {
                                 e.printStackTrace();
                                 e.getMessage();
                             }
+                            state = States.WAITING_FOR_RESPONSE;
+                            break;
 
                         } else if (userChoice.equals("refresh")) {
                             request = new WhoOnlineMessage(
@@ -644,7 +650,7 @@ public class TestClient2 {
                     udpStates = UDPStates.WAIT_FOR_MESSAGE;
                     lastPacket = null;
                     udpRunning = false;
-                    state = States.USERS_REQUESTED;
+                    state = States.LOGGEDIN;
                     exit = true;
                     return;
                 }
