@@ -82,6 +82,7 @@ public class TestClient2 {
     private KeyPair kp;
     private PublicKey pub, reqPublicKey;
     private PrivateKey priv;
+    private boolean exit = false;
 
 
     public TestClient2() {
@@ -360,7 +361,7 @@ public class TestClient2 {
                         break;
 
                     case USERS_REQUESTED:
-
+                        // TODO add here list of users
                         System.out.println("Who do you want to chat with? Please type name or 'logout' or 'refresh'");
                         userChoice = inFromUser.readLine();
 
@@ -418,6 +419,7 @@ public class TestClient2 {
                         try {
                             if (udpRunning) {
                                 udpHandler.send();
+                                
                             }
                         } catch (IOException e) {
                             System.out.println("UDP-Message could not be sent.\nPort: " + requested_udpPort + "\nIP: "
@@ -425,7 +427,9 @@ public class TestClient2 {
                             e.printStackTrace();
                         }
 
-                        state = States.CHATTING;
+                        if (!exit) {
+                            state = States.CHATTING;
+                        }
                         break;
 
                     case States.WAITING_FOR_RESPONSE:
@@ -548,7 +552,6 @@ public class TestClient2 {
                 startListener();
 
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }
@@ -599,7 +602,6 @@ public class TestClient2 {
                         if (udpStates == UDPStates.WAIT_FOR_ACK && lastPacket != null) {
                             try {
                                 clientUdpSocket.send(lastPacket);
-
                             } catch (IOException e) {
                                 e.getMessage();
                             }
@@ -638,11 +640,18 @@ public class TestClient2 {
 
             try {
                 message = inFromUser.readLine();
+                if (message.equals("exit")) {
+                    udpStates = UDPStates.WAIT_FOR_MESSAGE;
+                    lastPacket = null;
+                    udpRunning = false;
+                    state = States.USERS_REQUESTED;
+                    exit = true;
+                    return;
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
         
-            // TODO encypher the message using clients public key
             ChatMessage chat_message = new ChatMessage(
                     new MsgHeader(MsgType.CHAT_MSG, 1, 1, System.currentTimeMillis()), message);
 
